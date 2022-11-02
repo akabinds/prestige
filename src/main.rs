@@ -1,10 +1,16 @@
 #![no_std]
 #![no_main]
+#![feature(decl_macro)]
+
+mod kernel;
+mod vga;
 
 use core::panic::PanicInfo;
 
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
+extern "C" fn _start() -> ! {
+    println!("Hello World!");
+
     loop {}
 }
 
