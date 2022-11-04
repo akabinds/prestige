@@ -1,23 +1,25 @@
 #![no_std]
 #![no_main]
-#![feature(decl_macro, custom_test_frameworks)]
-#![reexport_test_harness_main = "test_main"]
-#![test_runner(crate::test::test_runner)]
+#![feature(decl_macro, abi_x86_interrupt)]
+#![allow(dead_code)]
 
 mod kernel;
-mod vga;
-
-#[cfg(test)]
-mod test;
 
 use core::panic::PanicInfo;
+use kernel::{stdout::println, Initialize};
+use x86_64::{self, structures::idt::InterruptDescriptorTable};
+
+fn init() {
+    InterruptDescriptorTable::init();
+}
 
 #[no_mangle]
 extern "C" fn _start() -> ! {
     println!("Hello World!");
 
-    #[cfg(test)]
-    test_main();
+    init();
+
+    x86_64::instructions::interrupts::int3();
 
     loop {}
 }

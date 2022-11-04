@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use core::{
     fmt::{self, Write},
     ops,
@@ -138,16 +136,15 @@ impl fmt::Write for Writer {
 }
 
 #[doc(hidden)]
-pub fn _print(args: fmt::Arguments) {
+pub fn _std_out(args: fmt::Arguments) {
     WRITER.lock().write_fmt(args).unwrap();
 }
 
 pub macro print($($arg:tt)*) {
-    ($crate::vga::_print(format_args!($($arg)*)));
+    (self::_std_out(format_args!($($arg)*)));
 }
 
-#[macro_export]
-macro_rules! println {
-    () => ($crate::print!("\n"));
-    ($($arg:tt)*) => ($crate::vga::print!("{}\n", format_args!($($arg)*)));
+pub macro println {
+    () => ($crate::print!("\n")),
+    ($($arg:tt)*) => (self::print!("{}\n", format_args!($($arg)*)))
 }
