@@ -1,25 +1,25 @@
 #![no_std]
 #![no_main]
-#![feature(decl_macro, abi_x86_interrupt)]
+#![feature(decl_macro, abi_x86_interrupt, concat_idents)]
 #![allow(dead_code)]
 
 mod kernel;
 
 use core::panic::PanicInfo;
 use kernel::{stdout::println, Initialize};
-use x86_64::{self, structures::idt::InterruptDescriptorTable};
+use x86_64::structures::{gdt::GlobalDescriptorTable, idt::InterruptDescriptorTable};
 
-fn init() {
-    InterruptDescriptorTable::init();
+macro init($($t:ty),*) {
+    $(
+        <$t>::init();
+    )*
 }
 
 #[no_mangle]
 extern "C" fn _start() -> ! {
     println!("Hello World!");
 
-    init();
-
-    x86_64::instructions::interrupts::int3();
+    init!(InterruptDescriptorTable, GlobalDescriptorTable);
 
     loop {}
 }
