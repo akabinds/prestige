@@ -21,12 +21,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
-name = "bootloader"
-version = "0.9.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6e02311b16c9819e7c72866d379cdd3026c3b7b25c1edf161f548f8e887e7ff"
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -34,6 +28,12 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 dependencies = [
  "spin 0.5.2",
 ]
+
+[[package]]
+name = "limine"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c847ac148a0c53ba3755dfa9830722b1043179584009869e6afc2b413e13f105"
 
 [[package]]
 name = "lock_api"
@@ -49,9 +49,11 @@ dependencies = [
 name = "prestige"
 version = "0.1.0"
 dependencies = [
- "bootloader",
+ "bitflags",
  "lazy_static",
+ "limine",
  "spin 0.9.4",
+ "uart_16550",
  "volatile",
  "x86_64",
 ]
@@ -81,6 +83,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f6002a767bff9e83f8eeecf883ecb8011875a21ae8da43bffb817a57e78cc09"
 dependencies = [
  "lock_api",
+]
+
+[[package]]
+name = "uart_16550"
+version = "0.2.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b074eb9300ad949edd74c529c0e8d451625af71bb948e6b65fe69f72dc1363d9"
+dependencies = [
+ "bitflags",
+ "rustversion",
+ "x86_64",
 ]
 
 [[package]]
