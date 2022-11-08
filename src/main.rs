@@ -8,17 +8,32 @@ extern crate alloc;
 mod kernel;
 
 use core::panic::PanicInfo;
-use kernel::io::{serial::serial_println, stdout::println};
+use kernel::{
+    hlt_loop,
+    io::stdout::println,
+    Initialize,
+};
+use x86_64::structures::{idt::InterruptDescriptorTable, gdt::GlobalDescriptorTable};
+
+macro init_structures($($s:ty),+) {
+    $(
+        <$s>::init();
+    )+
+}
 
 #[no_mangle]
 extern "C" fn _start() -> ! {
-    serial_println!("Hello World!");
+    println!("Hello World!");
 
-    loop {}
+    init_structures!(InterruptDescriptorTable, GlobalDescriptorTable);
+
+    println!("debug print reached");
+
+    hlt_loop();
 }
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    loop {}
+    hlt_loop();
 }

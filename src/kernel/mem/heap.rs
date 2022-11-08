@@ -17,5 +17,5 @@ static OSALLOC: OSAlloc = OSAlloc;
 
 #[alloc_error_handler]
 fn alloc_error_handler(layout: Layout) -> ! {
-    panic!("allocation erorr: {:?}", layout)
+    panic!("allocation error: {:?}", layout)
 }
