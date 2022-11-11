@@ -1,7 +1,7 @@
-use super::Initialize;
-use crate::kernel::{
+use super::{
     gdt, hlt_loop,
     io::stdout::{print, println},
+    Initialize,
 };
 use lazy_static::lazy_static;
 use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
@@ -28,9 +28,10 @@ lazy_static! {
             idt.double_fault
                 .set_handler_fn(double_fault_handler)
                 .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
+            idt.page_fault
+                .set_handler_fn(page_fault_handler)
+                .set_stack_index(gdt::PAGE_FAULT_IST_INDEX);
         }
-
-        idt.page_fault.set_handler_fn(page_fault_handler);
 
         idt[Into::<usize>::into(InterruptIndex::Timer)].set_handler_fn(timer_interrupt_handler);
         idt[Into::<usize>::into(InterruptIndex::Keyboard)]
@@ -74,14 +75,17 @@ extern "x86-interrupt" fn breakpoint_handler(sf: InterruptStackFrame) {
     println!("EXCEPTION: BREAKPOINT\nStack Frame: {:#?}", sf);
 }
 
-extern "x86-interrupt" fn double_fault_handler(sf: InterruptStackFrame, _ec: u64) -> ! {
+extern "x86-interrupt" fn double_fault_handler(sf: InterruptStackFrame, _error_code: u64) -> ! {
     panic!("EXCEPTION: DOUBLE FAULT\nStack Frame: {:#?}", sf);
 }
 
-extern "x86-interrupt" fn page_fault_handler(sf: InterruptStackFrame, ec: PageFaultErrorCode) {
+extern "x86-interrupt" fn page_fault_handler(
+    sf: InterruptStackFrame,
+    error_code: PageFaultErrorCode,
+) {
     println!("EXCEPTION: PAGE FAULT");
     println!("Accessed Address: {:?}", Cr2::read());
-    println!("Error Code: {:?}", ec);
+    println!("Error Code: {:?}", error_code);
     println!("Stack Frame: {:#?}", sf);
 
     hlt_loop();
