@@ -4,7 +4,7 @@ use spin::Mutex;
 use uart_16550::SerialPort;
 
 lazy_static! {
-    pub static ref SERIAL1: Mutex<SerialPort> = {
+    static ref SERIAL1: Mutex<SerialPort> = {
         let mut serial_port = unsafe { SerialPort::new(0x3F8) };
         serial_port.init();
         Mutex::new(serial_port)
@@ -13,7 +13,9 @@ lazy_static! {
 
 #[doc(hidden)]
 pub fn _serial_std_out(args: fmt::Arguments) {
-    SERIAL1.lock().write_fmt(args).ok();
+    use x86_64::instructions::interrupts::without_interrupts;
+
+    without_interrupts(|| SERIAL1.lock().write_fmt(args).ok());
 }
 
 pub macro serial_print($($arg:tt)*) {

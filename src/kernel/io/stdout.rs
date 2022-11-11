@@ -41,7 +41,7 @@ pub fn _std_out(args: fmt::Arguments) {
 }
 
 pub macro print($($arg:tt)*) {
-    _std_out(format_args!($($arg)*));
+    _std_out(format_args!($($arg)*))
 }
 
 pub macro println {

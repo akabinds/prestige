@@ -2,30 +2,25 @@
 #![no_main]
 #![feature(decl_macro, abi_x86_interrupt, alloc_error_handler, format_args_nl)]
 #![allow(dead_code)]
+#![allow(clippy::from_over_into)]
 
 extern crate alloc;
 
 mod kernel;
 
 use core::panic::PanicInfo;
-use kernel::{
-    hlt_loop,
-    io::stdout::println,
-    Initialize,
-};
-use x86_64::structures::{idt::InterruptDescriptorTable, gdt::GlobalDescriptorTable};
+use kernel::{gdt::gdt_init, hlt_loop, interrupts::int_init, io::stdout::println};
 
-macro init_structures($($s:ty),+) {
-    $(
-        <$s>::init();
-    )+
+fn init() {
+    gdt_init();
+    int_init();
 }
 
 #[no_mangle]
 extern "C" fn _start() -> ! {
     println!("Hello World!");
 
-    init_structures!(InterruptDescriptorTable, GlobalDescriptorTable);
+    init();
 
     println!("debug print reached");
 

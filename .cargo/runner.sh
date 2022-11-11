@@ -31,9 +31,11 @@ xorriso -as mkisofs                                             \
 # For the image to be bootable on BIOS systems, we must run `limine-deploy` on it.
 target/limine/limine-deploy $KERNEL.iso
 
+qemu-img convert -O qcow2 $KERNEL.iso $KERNEL.qcow2
+
 # Run the created image with QEMU.
 qemu-system-x86_64 \
     -machine q35 -cpu qemu64 -M smm=off \
     -D target/log.txt -d int,guest_errors -no-reboot -no-shutdown \
     -serial stdio \
-    $KERNEL.iso
+    $KERNEL.qcow2
