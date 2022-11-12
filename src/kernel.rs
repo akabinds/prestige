@@ -2,6 +2,7 @@ pub mod gdt;
 pub mod interrupts;
 pub mod io;
 pub mod mem;
+pub mod fs;
 
 pub trait Initialize {
     fn init();
