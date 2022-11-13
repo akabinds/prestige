@@ -5,7 +5,7 @@ use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use prestige::{
     init,
-    kernel::{hlt_loop, io::stdout::println},
+    kernel::{hlt_loop, io::vga::println},
 };
 
 entry_point!(kmain);
@@ -14,8 +14,6 @@ fn kmain(_boot_info: &'static BootInfo) -> ! {
     println!("Hello World!");
 
     init();
-
-    println!("debug print reached");
 
     hlt_loop();
 }

@@ -1,8 +1,10 @@
+pub mod fs;
 pub mod gdt;
 pub mod interrupts;
 pub mod io;
 pub mod mem;
-pub mod fs;
+pub mod process;
+pub mod syscall;
 
 pub trait Initialize {
     fn init();

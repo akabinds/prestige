@@ -1,6 +1,6 @@
 use super::{
     gdt, hlt_loop,
-    io::stdout::{print, println},
+    io::vga::{print, println},
     Initialize,
 };
 use lazy_static::lazy_static;

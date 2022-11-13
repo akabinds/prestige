@@ -136,12 +136,15 @@ impl fmt::Write for Writer {
 }
 
 #[doc(hidden)]
-pub fn _std_out(args: fmt::Arguments) {
-    WRITER.lock().write_fmt(args).unwrap();
+pub fn _print(args: fmt::Arguments) {
+    WRITER
+        .lock()
+        .write_fmt(args)
+        .expect("Failed to write to VGA");
 }
 
 pub macro print($($arg:tt)*) {
-    (_std_out(format_args!($($arg)*)))
+    (_print(format_args!($($arg)*)))
 }
 
 pub macro println {
