@@ -10,10 +10,10 @@ use prestige::{
 
 entry_point!(kmain);
 
-fn kmain(_boot_info: &'static BootInfo) -> ! {
+fn kmain(boot_info: &'static BootInfo) -> ! {
     println!("Hello World!");
 
-    init();
+    init(boot_info);
 
     hlt_loop();
 }
