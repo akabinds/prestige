@@ -3,6 +3,7 @@ pub mod gdt;
 pub mod interrupts;
 pub mod io;
 pub mod mem;
+pub mod net;
 pub mod process;
 pub mod syscall;
 
