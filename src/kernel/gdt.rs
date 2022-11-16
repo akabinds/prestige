@@ -8,7 +8,7 @@ use x86_64::{
     VirtAddr,
 };
 
-pub fn gdt_init() {
+pub fn init() {
     GlobalDescriptorTable::init();
 }
 

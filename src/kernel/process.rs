@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeMap, string::String};
+use alloc::{boxed::Box, collections::BTreeMap, string::String};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
@@ -37,7 +37,29 @@ impl From<usize> for ExitCode {
 }
 
 #[derive(Debug, Clone)]
+pub enum Resource {}
+
+const MAX_RESOURCE_HANDLES: usize = 64;
+
+#[derive(Debug, Clone)]
+pub struct Thread {
+    id: usize,
+    // TODO
+}
+
+const MAX_THREADS: usize = 100;
+
+#[derive(Debug, Clone)]
 pub struct Process {
     id: usize,
+    dir: String,
     env: BTreeMap<String, String>,
+    threads: [Box<Thread>; MAX_THREADS],
+    resource_handles: [Box<Resource>; MAX_RESOURCE_HANDLES],
+}
+
+impl Process {
+    pub fn new() -> Self {
+        todo!();
+    }
 }

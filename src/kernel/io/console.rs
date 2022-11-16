@@ -22,6 +22,14 @@ fn switch_raw(cmd: &str) {
     }
 }
 
+fn is_enabled(mode: &str) -> bool {
+    match mode {
+        "echo" => ECHO.load(Ordering::SeqCst),
+        "raw" => RAW.load(Ordering::SeqCst),
+        _ => false,
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Console;
 
@@ -39,4 +47,12 @@ impl FileIO for Console {
     fn write(&mut self, buf: &[u8]) -> Result<usize, ()> {
         todo!();
     }
+}
+
+const BACKSPACE: char = '\x08';
+
+pub fn handle_key_inp(key: char) {
+    let mut stdin = STDIN.lock();
+
+    if key == BACKSPACE && !is_enabled("raw") {}
 }

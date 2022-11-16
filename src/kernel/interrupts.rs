@@ -1,6 +1,9 @@
 use super::{
     gdt, hlt_loop,
-    io::vga::{print, println},
+    io::{
+        keyboard,
+        vga::{print, println},
+    },
     Initialize,
 };
 use lazy_static::lazy_static;
@@ -13,7 +16,7 @@ use x86_64::{
     structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode},
 };
 
-pub fn int_init() {
+pub fn init() {
     InterruptDescriptorTable::init();
     unsafe { PICS.lock().initialize() };
     x86_64::instructions::interrupts::enable();
@@ -101,20 +104,15 @@ extern "x86-interrupt" fn timer_interrupt_handler(_sf: InterruptStackFrame) {
 }
 
 extern "x86-interrupt" fn keyboard_interrupt_handler(_sf: InterruptStackFrame) {
-    lazy_static! {
-        static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> =
-            Mutex::new(Keyboard::new(HandleControl::Ignore));
-    }
+    if let Some(ref mut kbd) = *keyboard::KEYBOARD.lock() {
+        let scancode = keyboard::read_scancode();
 
-    let mut keyboard = KEYBOARD.lock();
-    let mut port = Port::new(0x60);
-    let scancode: u8 = unsafe { port.read() };
-
-    if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
-        if let Some(key) = keyboard.process_keyevent(key_event) {
-            match key {
-                DecodedKey::Unicode(character) => print!("{}", character),
-                DecodedKey::RawKey(key) => print!("{:?}", key),
+        if let Ok(Some(key_event)) = kbd.add_byte(scancode) {
+            if let Some(key) = kbd.process_keyevent(key_event) {
+                match key {
+                    DecodedKey::Unicode(character) => print!("{}", character),
+                    DecodedKey::RawKey(key) => print!("{:?}", key),
+                }
             }
         }
     }
