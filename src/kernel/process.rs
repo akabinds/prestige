@@ -1,5 +1,10 @@
 use alloc::{boxed::Box, collections::BTreeMap, string::String};
 
+use super::{
+    io::console::Console,
+    resource::{Device, Resource},
+};
+
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum ExitCode {
@@ -36,9 +41,6 @@ impl From<usize> for ExitCode {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Resource {}
-
 const MAX_RESOURCE_HANDLES: usize = 64;
 
 #[derive(Debug, Clone)]
@@ -53,13 +55,29 @@ const MAX_THREADS: usize = 100;
 pub struct Process {
     id: usize,
     dir: String,
+    user: Option<String>,
     env: BTreeMap<String, String>,
-    threads: [Box<Thread>; MAX_THREADS],
-    resource_handles: [Box<Resource>; MAX_RESOURCE_HANDLES],
+    threads: [Option<Box<Thread>>; MAX_THREADS],
+    resource_handles: [Option<Box<Resource>>; MAX_RESOURCE_HANDLES],
 }
 
 impl Process {
-    pub fn new() -> Self {
-        todo!();
+    pub fn new(id: usize, dir: String, user: Option<String>) -> Self {
+        let threads = [(); MAX_THREADS].map(|_| None);
+        let mut resource_handles = [(); MAX_RESOURCE_HANDLES].map(|_| None);
+
+        resource_handles[0] = Some(Box::new(Resource::Device(Device::Console(Console::new()))));
+        resource_handles[1] = Some(Box::new(Resource::Device(Device::Console(Console::new()))));
+        resource_handles[2] = Some(Box::new(Resource::Device(Device::Console(Console::new()))));
+        resource_handles[3] = Some(Box::new(Resource::Device(Device::Null)));
+
+        Self {
+            id,
+            dir,
+            user,
+            env: BTreeMap::new(),
+            threads,
+            resource_handles,
+        }
     }
 }

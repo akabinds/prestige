@@ -1,8 +1,68 @@
+use alloc::{boxed::Box, string::String};
+
 pub trait FileIO {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()>;
     fn write(&mut self, buf: &[u8]) -> Result<usize, ()>;
 }
 
+#[derive(Debug, Clone)]
+pub struct File {
+    contained_by: Directory,
+    name: String,
+    addr: u32,
+    size: u32,
+    offset: u32,
+}
+
+impl FileIO for File {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
+        todo!();
+    }
+
+    fn write(&mut self, buf: &[u8]) -> Result<usize, ()> {
+        todo!();
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Directory {
+    parent: Option<Box<Directory>>,
+    name: String,
+    addr: u32,
+    size: u32,
+}
+
+impl Directory {
+    pub fn is_root(&self) -> bool {
+        self.parent.is_none()
+    }
+}
+
+impl FileIO for Directory {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
+        todo!();
+    }
+
+    fn write(&mut self, buf: &[u8]) -> Result<usize, ()> {
+        Err(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileType {
+    Dir = 0,
+    File = 1,
+}
+
+#[derive(Clone)]
+pub struct DirEntry {
+    dir: Directory,
+    name: String,
+    addr: u32,
+    kind: FileType,
+}
+
+#[derive(Copy, Clone)]
 #[repr(u8)]
 pub enum OpenFlag {
     Read = 1,
@@ -10,4 +70,14 @@ pub enum OpenFlag {
     Append = 3,
     Create = 4,
     Truncate = 5,
+    ReadWrite = 6,
+    WriteRead = 7,
+    AppendRead = 8,
+    Binary = 9,
+}
+
+impl OpenFlag {
+    fn is_set(&self, flags: usize) -> bool {
+        flags & (*self as usize) != 0
+    }
 }

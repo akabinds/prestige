@@ -6,6 +6,7 @@ pub mod mem;
 pub mod multitask;
 pub mod net;
 pub mod process;
+pub mod resource;
 pub mod syscall;
 
 pub trait Initialize {

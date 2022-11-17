@@ -74,15 +74,12 @@ impl Executor {
                 .entry(task_id)
                 .or_insert_with(|| TaskWaker::new(task_id, task_queue.clone()));
 
-            let mut context = Context::from_waker(waker);
+            let mut ctx = Context::from_waker(waker);
 
-            match task.poll(&mut context) {
-                Poll::Ready(()) => {
-                    tasks.remove(&task_id);
-                    waker_cache.remove(&task_id);
-                }
-                Poll::Pending => {}
-            }
+            task.poll(&mut ctx).is_ready().then(|| {
+                tasks.remove(&task_id);
+                waker_cache.remove(&task_id);
+            });
         }
     }
 
