@@ -49,11 +49,23 @@ pub struct Thread {
     // TODO
 }
 
+impl Thread {
+    pub fn id(&self) -> usize {
+        self.id
+    }
+}
+
+pub fn current_thread() -> Thread {
+    todo!();
+}
+
 const MAX_THREADS: usize = 100;
 
 #[derive(Debug, Clone)]
 pub struct Process {
     id: usize,
+    parent: Option<Box<Process>>,
+    children: BTreeMap<usize, Process>,
     dir: String,
     user: Option<String>,
     env: BTreeMap<String, String>,
@@ -73,6 +85,8 @@ impl Process {
 
         Self {
             id,
+            parent: None,
+            children: BTreeMap::new(),
             dir,
             user,
             env: BTreeMap::new(),
@@ -80,4 +94,16 @@ impl Process {
             resource_handles,
         }
     }
+
+    pub fn id(&self) -> usize {
+        self.id
+    }
+}
+
+pub fn current_process() -> Process {
+    todo!();
+}
+
+pub fn create_resource_handle(resource: Resource) -> Result<usize, ()> {
+    todo!();
 }

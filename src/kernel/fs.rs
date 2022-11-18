@@ -1,5 +1,7 @@
 use alloc::{boxed::Box, string::String};
 
+use super::resource::Resource;
+
 pub trait FileIO {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()>;
     fn write(&mut self, buf: &[u8]) -> Result<usize, ()>;
@@ -12,6 +14,12 @@ pub struct File {
     addr: u32,
     size: u32,
     offset: u32,
+}
+
+impl File {
+    pub fn create(path: &str) -> Self {
+        todo!();
+    }
 }
 
 impl FileIO for File {
@@ -35,6 +43,22 @@ pub struct Directory {
 impl Directory {
     pub fn is_root(&self) -> bool {
         self.parent.is_none()
+    }
+
+    pub fn entries(&self) -> DirEntries {
+        DirEntries { dir: self.clone() }
+    }
+}
+
+pub struct DirEntries {
+    dir: Directory,
+}
+
+impl Iterator for DirEntries {
+    type Item = DirEntry;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        todo!();
     }
 }
 
@@ -71,13 +95,29 @@ pub enum OpenFlag {
     Create = 4,
     Truncate = 5,
     ReadWrite = 6,
-    WriteRead = 7,
-    AppendRead = 8,
-    Binary = 9,
+    Dir = 7,
+    Device = 8,
 }
 
 impl OpenFlag {
     fn is_set(&self, flags: usize) -> bool {
         flags & (*self as usize) != 0
+    }
+}
+
+pub fn open(path: &str, flags: usize) -> Option<Resource> {
+    if OpenFlag::Dir.is_set(flags) {
+        todo!();
+    } else if OpenFlag::Device.is_set(flags) {
+        todo!();
+    } else {
+        if !(OpenFlag::Read.is_set(flags)
+            || OpenFlag::Write.is_set(flags)
+            || OpenFlag::ReadWrite.is_set(flags))
+        {
+            None
+        } else {
+            todo!();
+        }
     }
 }

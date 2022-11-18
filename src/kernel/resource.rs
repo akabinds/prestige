@@ -38,6 +38,12 @@ pub enum Device {
     Console(Console),
 }
 
+impl Device {
+    pub fn create() -> Self {
+        todo!();
+    }
+}
+
 impl FileIO for Device {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
         use Device::*;
@@ -49,6 +55,11 @@ impl FileIO for Device {
     }
 
     fn write(&mut self, buf: &[u8]) -> Result<usize, ()> {
-        todo!();
+        use Device::*;
+
+        match self {
+            Null => Ok(0),
+            Console(c) => c.write(buf),
+        }
     }
 }

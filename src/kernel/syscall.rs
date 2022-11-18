@@ -1,4 +1,7 @@
-use super::process::{ExitCode, Process, Thread};
+use super::{
+    fs,
+    process::{self, ExitCode, Process, Thread},
+};
 
 pub fn read(handle: usize, buf: &mut [u8]) -> Option<usize> {
     todo!();
@@ -8,15 +11,29 @@ pub fn write(handle: usize, buf: &[u8]) -> Option<usize> {
     todo!();
 }
 
-pub fn fopen(path: &str, flags: usize) -> isize {
+pub fn open(path: &str, flags: usize) -> isize {
+    if let Some(resource) = fs::open(path, flags) {
+        if let Ok(handle) = process::create_resource_handle(resource) {
+            return handle as isize;
+        }
+    }
+
+    -1
+}
+
+pub fn pspawn() {
     todo!();
 }
 
-pub fn fork(process: Process) {
+pub fn tspawn() {
     todo!();
 }
 
-pub fn tclone(thread: Thread) {
+pub fn fork(process: Process) -> isize {
+    todo!();
+}
+
+pub fn tclone(thread: Thread) -> isize {
     todo!();
 }
 
