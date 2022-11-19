@@ -98,6 +98,18 @@ impl Process {
     pub fn id(&self) -> usize {
         self.id
     }
+
+    pub fn spawn() -> Result<(), ExitCode> {
+        todo!();
+    }
+
+    pub fn fork(&self) -> Result<Self, ExitCode> {
+        Ok(self.clone())
+    }
+
+    fn exec(&self) {
+        todo!();
+    }
 }
 
 pub fn current_process() -> Process {

@@ -29,8 +29,14 @@ pub fn tspawn() {
     todo!();
 }
 
-pub fn fork(process: Process) -> isize {
-    todo!();
+pub fn pfork() -> isize {
+    let calling_proc = process::current_process();
+
+    if let Ok(child) = calling_proc.fork() {
+        return child.id() as isize;
+    }
+
+    -1
 }
 
 pub fn tclone(thread: Thread) -> isize {

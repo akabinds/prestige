@@ -53,6 +53,10 @@ impl Stdout {
     fn new() -> Self {
         Self {}
     }
+
+    pub fn write(&self, s: &str) {
+        syscall::write(1, s.as_bytes());
+    }
 }
 
 pub struct Stderr;
@@ -60,5 +64,9 @@ pub struct Stderr;
 impl Stderr {
     fn new() -> Self {
         Self {}
+    }
+
+    pub fn write(&self, s: &str) {
+        syscall::write(2, s.as_bytes());
     }
 }
