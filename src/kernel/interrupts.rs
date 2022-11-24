@@ -7,7 +7,7 @@ use super::{
     Initialize,
 };
 use lazy_static::lazy_static;
-use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
+use pc_keyboard::{layouts, DecodedKey, HandleControl, KeyCode, Keyboard, ScancodeSet1};
 use pic8259::ChainedPics;
 use spin::Mutex;
 use x86_64::{
@@ -95,8 +95,6 @@ extern "x86-interrupt" fn page_fault_handler(
 }
 
 extern "x86-interrupt" fn timer_interrupt_handler(_sf: InterruptStackFrame) {
-    print!(".");
-
     unsafe {
         PICS.lock()
             .notify_end_of_interrupt(Into::<u8>::into(InterruptIndex::Timer));
@@ -110,8 +108,12 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_sf: InterruptStackFrame) {
         if let Ok(Some(key_event)) = kbd.add_byte(scancode) {
             if let Some(key) = kbd.process_keyevent(key_event) {
                 match key {
-                    DecodedKey::Unicode(character) => print!("{}", character),
-                    DecodedKey::RawKey(key) => print!("{:?}", key),
+                    DecodedKey::Unicode(c) => keyboard::send_key(c),
+                    DecodedKey::RawKey(KeyCode::ArrowUp) => keyboard::send_csi('A'),
+                    DecodedKey::RawKey(KeyCode::ArrowDown) => keyboard::send_csi('B'),
+                    DecodedKey::RawKey(KeyCode::ArrowRight) => keyboard::send_csi('C'),
+                    DecodedKey::RawKey(KeyCode::ArrowLeft) => keyboard::send_csi('D'),
+                    _ => {}
                 }
             }
         }

@@ -56,6 +56,12 @@ pub fn read_scancode() -> u8 {
     unsafe { port.read() }
 }
 
-fn send_key(k: char) {
+pub fn send_key(k: char) {
     console::handle_key_inp(k);
+}
+
+pub fn send_csi(c: char) {
+    send_key('\x1B');
+    send_key('[');
+    send_key(c);
 }

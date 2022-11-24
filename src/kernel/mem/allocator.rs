@@ -6,6 +6,9 @@ use x86_64::{
     VirtAddr,
 };
 
+#[global_allocator]
+static ALLOCATOR: LockedHeap = LockedHeap::empty();
+
 pub const HEAP_START: usize = 0x_4444_4444_0000;
 pub const HEAP_SIZE: usize = 100 * 1024;
 
@@ -39,8 +42,13 @@ pub(super) fn init_heap(
     Ok(())
 }
 
-#[global_allocator]
-static ALLOCATOR: LockedHeap = LockedHeap::empty();
+pub fn alloc(addr: u64, size: usize) -> Result<(), ()> {
+    todo!();
+}
+
+pub fn free(addr: u64, size: usize) {
+    todo!();
+}
 
 #[alloc_error_handler]
 fn alloc_error_handler(layout: core::alloc::Layout) -> ! {

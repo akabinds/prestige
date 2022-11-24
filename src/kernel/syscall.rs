@@ -1,19 +1,39 @@
 use super::{
-    fs,
+    fs::{self, FileIO},
     process::{self, ExitCode, Process, Thread},
 };
 
-pub fn read(handle: usize, buf: &mut [u8]) -> Option<usize> {
-    todo!();
+pub fn read(handle: usize, buf: &mut [u8]) -> isize {
+    let mut calling_proc = process::current_process();
+
+    if let Some(mut res) = calling_proc.handle(handle) {
+        if let Ok(bytes) = res.read(buf) {
+            calling_proc.update_handle(handle, *res);
+            return bytes as isize;
+        }
+    }
+
+    -1
 }
 
-pub fn write(handle: usize, buf: &[u8]) -> Option<usize> {
-    todo!();
+pub fn write(handle: usize, buf: &[u8]) -> isize {
+    let mut calling_proc = process::current_process();
+
+    if let Some(mut res) = calling_proc.handle(handle) {
+        if let Ok(bytes) = res.write(buf) {
+            calling_proc.update_handle(handle, *res);
+            return bytes as isize;
+        }
+    }
+
+    -1
 }
 
 pub fn open(path: &str, flags: usize) -> isize {
+    let mut calling_proc = process::current_process();
+
     if let Some(resource) = fs::open(path, flags) {
-        if let Ok(handle) = process::create_resource_handle(resource) {
+        if let Ok(handle) = calling_proc.create_handle(resource) {
             return handle as isize;
         }
     }
@@ -43,6 +63,7 @@ pub fn tclone(thread: Thread) -> isize {
     todo!();
 }
 
-pub fn exit(code: usize) {
-    todo!();
+pub fn exit(code: u8) -> ExitCode {
+    let calling_proc = process::current_process();
+    calling_proc.exit(code)
 }
