@@ -4,7 +4,10 @@ use alloc::{
     string::{String, ToString},
     vec,
 };
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::{
+    fmt,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 pub static ECHO: AtomicBool = AtomicBool::new(true);
 pub static RAW: AtomicBool = AtomicBool::new(false);
@@ -33,6 +36,96 @@ fn is_enabled(mode: &str) -> bool {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct Style {
+    fg: Option<usize>,
+    bg: Option<usize>,
+}
+
+impl Style {
+    fn color_to_fg(color: &str) -> Option<usize> {
+        match color {
+            "Black" => Some(30),
+            "Red" => Some(31),
+            "Green" => Some(32),
+            "Brown" => Some(33),
+            "Blue" => Some(34),
+            "Magenta" => Some(35),
+            "Cyan" => Some(36),
+            "LightGray" => Some(37),
+            "DarkGray" => Some(90),
+            "LightRed" => Some(91),
+            "LightGreen" => Some(92),
+            "Yellow" => Some(93),
+            "LightBlue" => Some(94),
+            "Pink" => Some(95),
+            "LightCyan" => Some(96),
+            "White" => Some(97),
+            _ => None,
+        }
+    }
+
+    fn color_to_bg(color: &str) -> Option<usize> {
+        Self::color_to_fg(color).map(|fg| fg + 10)
+    }
+
+    pub fn foreground(color: &str) -> Self {
+        Self {
+            fg: Self::color_to_fg(color),
+            bg: None,
+        }
+    }
+
+    pub fn with_foreground(self, color: &str) -> Self {
+        Self {
+            fg: Self::color_to_fg(color),
+            bg: self.bg,
+        }
+    }
+
+    pub fn background(color: &str) -> Self {
+        Self {
+            fg: None,
+            bg: Self::color_to_bg(color),
+        }
+    }
+
+    pub fn with_background(self, color: &str) -> Self {
+        Self {
+            fg: self.fg,
+            bg: Self::color_to_bg(color),
+        }
+    }
+
+    pub fn color(color: &str) -> Self {
+        Self::foreground(color)
+    }
+
+    pub fn with_color(self, color: &str) -> Self {
+        self.with_foreground(color)
+    }
+
+    pub fn reset() -> Self {
+        Self { fg: None, bg: None }
+    }
+}
+
+impl fmt::Display for Style {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(fg) = self.fg {
+            if let Some(bg) = self.bg {
+                write!(f, "\x1b[{};{}m", fg, bg)
+            } else {
+                write!(f, "\x1b[{}m", fg)
+            }
+        } else if let Some(bg) = self.bg {
+            write!(f, "\x1b[{}m", bg)
+        } else {
+            write!(f, "\x1b[0m")
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Console;
 
@@ -47,7 +140,7 @@ impl FileIO for Console {
         let stdin = STDIN.lock();
 
         let mut s = if buf.len() == 4 {
-            stdin.read_char(&mut buf.to_vec()).to_string()
+            stdin.read_char(&mut buf.to_vec()).unwrap().to_string()
         } else {
             stdin.read_line(&mut buf.to_vec())
         };

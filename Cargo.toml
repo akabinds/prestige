@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bit_field = "0.10.1"
 bitflags = "1.3.2"
 bootloader = { version = "0.9.23", features = ["map_physical_memory"] }
 crossbeam = { version = "0.8.2", default-features = false, features = ["alloc"] }

@@ -1,5 +1,5 @@
 #![no_std]
-#![feature(decl_macro, abi_x86_interrupt, alloc_error_handler)]
+#![feature(decl_macro, abi_x86_interrupt, alloc_error_handler, naked_functions)]
 #![allow(dead_code, unused_imports, unused_variables, unused_mut)]
 #![allow(
     clippy::from_over_into,
@@ -17,6 +17,7 @@ use bootloader::BootInfo;
 use kernel as k;
 
 pub fn init(boot_info: &'static BootInfo) {
+    k::io::vga::init();
     k::gdt::init();
     k::interrupts::init();
     k::io::keyboard::init();

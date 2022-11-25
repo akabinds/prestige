@@ -138,6 +138,7 @@ dependencies = [
 name = "prestige"
 version = "0.1.0"
 dependencies = [
+ "bit_field",
  "bitflags",
  "bootloader",
  "crossbeam",

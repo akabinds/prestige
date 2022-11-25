@@ -26,26 +26,24 @@ impl Stdin {
         Self {}
     }
 
-    pub fn read_char(&self, buf: &mut Vec<u8>) -> char {
-        let bytes = syscall::read(0, &mut *buf);
-
-        if bytes > 0 {
-            buf.resize(bytes as usize, 0);
-            return String::from_utf8_lossy(buf).to_string().remove(0);
+    pub fn read_char(&self, buf: &mut Vec<u8>) -> Option<char> {
+        if let Some(bytes) = syscall::read(0, &mut *buf) {
+            if bytes > 0 {
+                buf.resize(bytes, 0);
+                return Some(String::from_utf8_lossy(buf).to_string().remove(0));
+            }
         }
 
-        char::default()
+        None
     }
 
     pub fn read_line(&self, buf: &mut Vec<u8>) -> String {
-        let bytes = syscall::read(0, &mut *buf);
-
-        if bytes > 0 {
-            buf.resize(bytes as usize, 0);
-            return String::from_utf8_lossy(buf).to_string();
+        if let Some(bytes) = syscall::read(0, &mut *buf) {
+            buf.resize(bytes, 0);
+            String::from_utf8_lossy(buf).to_string()
+        } else {
+            String::new()
         }
-
-        String::new()
     }
 }
 

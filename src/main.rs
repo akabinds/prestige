@@ -7,7 +7,7 @@ use prestige::{
     init,
     kernel::{
         hlt_loop,
-        io::vga::{print, println},
+        io::vga::{fatal, print},
         multitask::executor::Executor,
     },
 };
@@ -15,9 +15,9 @@ use prestige::{
 entry_point!(kmain);
 
 fn kmain(boot_info: &'static BootInfo) -> ! {
-    print!("\x1b[?25h");
-
     init(boot_info);
+
+    print!("\x1b[?25h");
 
     let mut executor = Executor::new();
     executor.run();
@@ -25,6 +25,6 @@ fn kmain(boot_info: &'static BootInfo) -> ! {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    println!("{}", info);
+    fatal!("{}", info);
     hlt_loop();
 }
