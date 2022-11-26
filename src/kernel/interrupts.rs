@@ -1,19 +1,15 @@
 use super::{
     gdt, hlt_loop,
-    io::{
-        keyboard,
-        vga::{exception, print, println},
-    },
+    io::{console, exception, keyboard, println, serial::SERIAL},
     process::Registers,
     syscall, Initialize,
 };
 use core::arch::asm;
 use lazy_static::lazy_static;
-use pc_keyboard::{layouts, DecodedKey, HandleControl, KeyCode, Keyboard, ScancodeSet1};
+use pc_keyboard::{DecodedKey, KeyCode};
 use pic8259::ChainedPics;
 use spin::Mutex;
 use x86_64::{
-    instructions::{hlt, port::Port},
     registers::control::Cr2,
     structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode},
     PrivilegeLevel,
@@ -23,6 +19,10 @@ pub fn init() {
     InterruptDescriptorTable::init();
     unsafe { PICS.lock().initialize() };
     x86_64::instructions::interrupts::enable();
+}
+
+fn irq_idx(n: u8) -> usize {
+    (PIC1_OFFSET + n) as usize
 }
 
 lazy_static! {
@@ -42,9 +42,9 @@ lazy_static! {
                 .set_privilege_level(PrivilegeLevel::Ring3);
         }
 
-        idt[Into::<usize>::into(InterruptIndex::Timer)].set_handler_fn(timer_interrupt_handler);
-        idt[Into::<usize>::into(InterruptIndex::Keyboard)]
-            .set_handler_fn(keyboard_interrupt_handler);
+        idt[irq_idx(0)].set_handler_fn(timer_interrupt_handler);
+        idt[irq_idx(1)].set_handler_fn(keyboard_interrupt_handler);
+        idt[irq_idx(4)].set_handler_fn(com1_serial_interrupt_handler);
 
         idt
     };
@@ -58,25 +58,6 @@ static PICS: Mutex<ChainedPics> = Mutex::new(unsafe { ChainedPics::new(PIC1_OFFS
 impl Initialize for InterruptDescriptorTable {
     fn init() {
         IDT.load();
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-#[repr(u8)]
-enum InterruptIndex {
-    Timer = PIC1_OFFSET,
-    Keyboard,
-}
-
-impl Into<u8> for InterruptIndex {
-    fn into(self) -> u8 {
-        self as u8
-    }
-}
-
-impl Into<usize> for InterruptIndex {
-    fn into(self) -> usize {
-        (self as u8).into()
     }
 }
 
@@ -101,8 +82,7 @@ extern "x86-interrupt" fn page_fault_handler(sf: InterruptStackFrame, ec: PageFa
 
 extern "x86-interrupt" fn timer_interrupt_handler(_sf: InterruptStackFrame) {
     unsafe {
-        PICS.lock()
-            .notify_end_of_interrupt(Into::<u8>::into(InterruptIndex::Timer));
+        PICS.lock().notify_end_of_interrupt(irq_idx(0) as u8);
     }
 }
 
@@ -125,8 +105,22 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_sf: InterruptStackFrame) {
     }
 
     unsafe {
-        PICS.lock()
-            .notify_end_of_interrupt(Into::<u8>::into(InterruptIndex::Keyboard));
+        PICS.lock().notify_end_of_interrupt(irq_idx(1) as u8);
+    }
+}
+
+extern "x86-interrupt" fn com1_serial_interrupt_handler(_sf: InterruptStackFrame) {
+    let byte = SERIAL.lock().read_byte();
+    let key = match byte as char {
+        '\r' => '\n',
+        '\x7F' => '\x08',
+        c => c,
+    };
+
+    console::handle_key_inp(key);
+
+    unsafe {
+        PICS.lock().notify_end_of_interrupt(irq_idx(4) as u8);
     }
 }
 

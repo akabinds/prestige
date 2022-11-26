@@ -1,6 +1,6 @@
 use super::{Task, TaskId};
 use alloc::{collections::BTreeMap, sync::Arc, task::Wake};
-use core::task::{Context, Poll, Waker};
+use core::task::{Context, Waker};
 use crossbeam::queue::ArrayQueue;
 use x86_64::instructions::interrupts::{self, enable_and_hlt};
 

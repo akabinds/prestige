@@ -20,6 +20,7 @@ pub fn init(boot_info: &'static BootInfo) {
     k::io::vga::init();
     k::gdt::init();
     k::interrupts::init();
+    k::io::serial::init();
     k::io::keyboard::init();
 
     k::mem::init(boot_info);

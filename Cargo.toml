@@ -2,6 +2,15 @@
 name = "prestige"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/akabinds/prestige"
+readme = "README.md"
+default-run = "prestige"
+
+[features]
+default = ["vga"]
+vga = []
+serial = []
 
 [dependencies]
 bit_field = "0.10.1"
@@ -17,6 +26,3 @@ uart_16550 = "0.2.18"
 volatile = "0.4.5"
 vte = "0.11.0"
 x86_64 = "0.14.10"
-
-[package.metadata.bootimage]
-run-args = ["-serial", "stdio", "-no-reboot"]

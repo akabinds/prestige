@@ -5,9 +5,11 @@ pub mod vga;
 
 use super::syscall;
 use alloc::{
+    format,
     string::{String, ToString},
     vec::Vec,
 };
+use console::Style;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use vte::Parser;
@@ -69,4 +71,52 @@ impl Stderr {
     pub fn write(&self, s: &str) {
         syscall::write(2, s.as_bytes());
     }
+}
+
+pub macro kprint($($arg:tt)*) {
+    console::console_print(format_args!($($arg)*))
+}
+
+pub macro print($($arg:tt)*) {
+    let s = format!("{}", format_args!($($arg)*));
+    STDOUT.lock().write(&s);
+}
+
+pub macro println {
+    () => (print!("\n")),
+    ($($arg:tt)*) => (print!("{}\n", format_args!($($arg)*)))
+}
+
+macro eprint($($arg:tt)*) {
+    let s = format!("{}", format_args!($($arg)*));
+    STDERR.lock().write(&s);
+}
+
+macro eprintln {
+    () => (eprint!("\n")),
+    ($($arg:tt)*) => (eprint!("{}\n", format_args!($($arg)*)))
+}
+
+pub macro dbg($($arg:tt)*) {
+    let color = Style::color("Cyan");
+    let reset = Style::reset();
+    kprint!("{}DEBUG:{} {}\n", color, reset, format_args!($($arg)*))
+}
+
+pub macro exception($($arg:tt)*) {
+    let color = Style::color("LightRed");
+    let reset = Style::reset();
+    eprintln!("{}EXCEPTION:{} {}", color, reset, format_args!($($arg)*))
+}
+
+pub macro recoverable($($arg:tt)*) {
+    let color = Style::color("LightRed");
+    let reset = Style::reset();
+    eprintln!("{}ERROR:{} {}", color, reset, format_args!($($arg)*))
+}
+
+pub macro fatal($($arg:tt)*) {
+    let color = Style::color("Red");
+    let reset = Style::reset();
+    eprintln!("{}FATAL ERROR:{} {}", color, reset, format_args!($($arg)*))
 }

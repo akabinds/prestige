@@ -1,11 +1,25 @@
 use super::{
-    io::console::Console,
+    gdt::GDT,
+    io::{console::Console, recoverable},
+    mem::allocator,
     resource::{Device, Resource},
 };
-use alloc::{boxed::Box, collections::BTreeMap, string::String};
+use alloc::{
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet},
+    string::String,
+};
+use core::{
+    arch::asm,
+    sync::atomic::{AtomicU64, Ordering},
+};
 use lazy_static::lazy_static;
 use spin::RwLock;
 use x86_64::{structures::idt::InterruptStackFrameValue, VirtAddr};
+
+pub fn init(addr: u64) {
+    CODE_ADDR.store(addr, Ordering::SeqCst);
+}
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -63,12 +77,12 @@ pub struct Registers {
 #[derive(Debug, Clone)]
 pub struct Thread {
     id: usize,
-    proc: Box<Process>,
-    // WIP
+    proc: usize, // PID of the process containing this thread
+                 // WIP
 }
 
 impl Thread {
-    pub fn new(id: usize, proc: Box<Process>) -> Self {
+    pub fn new(id: usize, proc: usize) -> Self {
         Self { id, proc }
     }
 
@@ -86,6 +100,9 @@ pub fn current_thread() -> Thread {
 const MAX_RESOURCE_HANDLES: usize = 64;
 const MAX_THREADS: usize = 100;
 const MAX_PROCESSES: usize = 50;
+const MAX_PROC_SIZE: usize = 4 << 40;
+
+static CODE_ADDR: AtomicU64 = AtomicU64::new(0);
 
 lazy_static! {
     pub static ref PROCESSES: RwLock<[Box<Process>; MAX_PROCESSES]> =
@@ -100,8 +117,8 @@ pub struct Process {
     entry_point_addr: u64,
     stack_frame: InterruptStackFrameValue,
     registers: Registers,
-    parent: Option<Box<Process>>,
-    children: BTreeMap<usize, Process>,
+    parent: Option<usize>,     // PID of the parent process
+    children: BTreeSet<usize>, // PID's of the child processes
     dir: String,
     user: Option<String>,
     env: BTreeMap<String, String>,
@@ -119,8 +136,8 @@ impl Process {
             stack_segment: 0,
         };
 
-        let threads = [(); MAX_THREADS].map(|_| None);
-        // threads[0] = Some(Box::new(Thread::new(0, Box::new(self))));
+        let mut threads = [(); MAX_THREADS].map(|_| None);
+        threads[0] = Some(Box::new(Thread::new(0, id)));
 
         let mut resource_handles = [(); MAX_RESOURCE_HANDLES].map(|_| None);
 
@@ -137,7 +154,7 @@ impl Process {
             stack_frame,
             registers: Registers::default(),
             parent: None,
-            children: BTreeMap::new(),
+            children: BTreeSet::new(),
             dir: dir.into(),
             user: user.map(String::from),
             env: BTreeMap::new(),
@@ -146,16 +163,76 @@ impl Process {
         }
     }
 
+    pub fn spawn(bin: &[u8], args_ptr: usize, args_len: usize) -> Result<(), ExitCode> {
+        if let Ok(id) = Self::init(bin) {
+            let proc = PROCESSES.read()[id].clone();
+            proc.exec(args_ptr, args_len);
+            Ok(())
+        } else {
+            Err(ExitCode::ExecFault)
+        }
+    }
+
+    fn init(bin: &[u8]) -> Result<usize, ()> {
+        let proc_size = MAX_PROC_SIZE as u64;
+        let code_addr = CODE_ADDR.fetch_add(proc_size, Ordering::SeqCst);
+        let stack_addr = code_addr + proc_size;
+
+        todo!();
+    }
+
+    pub fn fork(&mut self) -> Result<Self, ExitCode> {
+        let mut child = self.clone();
+        child.set_id(self.id() + 1);
+        child.set_parent(self.id());
+        self.children.insert(child.id);
+
+        Ok(child)
+    }
+
+    fn exec(&self, args_ptr: usize, args_len: usize) {
+        let heap_addr = self.code_addr + (self.stack_addr - self.code_addr) / 2;
+        allocator::alloc(heap_addr, 1).expect("Unable to allocate");
+
+        unsafe {
+            asm!(
+                "cli",
+                "push {:r}",
+                "push {:r}",
+                "push 0x200",
+                "push {:r}",
+                "push {:r}",
+                "iretq",
+                in(reg) GDT.1.user_data.0,
+                in(reg) self.stack_addr,
+                in(reg) GDT.1.user_code.0,
+                in(reg) self.code_addr + self.entry_point_addr,
+                in("rdi") args_ptr,
+                in("rsi") args_len,
+            )
+        }
+    }
+
+    pub fn exit(self, code: u8) -> ExitCode {
+        allocator::free(self.code_addr, MAX_PROC_SIZE);
+
+        ExitCode::from(code as usize)
+    }
+
     pub fn id(&self) -> usize {
         self.id
     }
 
-    pub fn spawn() -> Result<(), ExitCode> {
-        todo!();
+    pub fn set_id(&mut self, id: usize) {
+        self.id = id;
     }
 
-    pub fn fork(&self) -> Result<Self, ExitCode> {
-        Ok(self.clone())
+    pub fn parent(&self) -> Option<Box<Self>> {
+        self.parent.map(|pid| PROCESSES.read()[pid].clone())
+    }
+
+    pub fn set_parent(&mut self, pid: usize) {
+        self.parent = Some(pid);
     }
 
     pub fn handle(&self, handle: usize) -> Option<Box<Resource>> {
@@ -172,6 +249,7 @@ impl Process {
             }
         }
 
+        recoverable!("Could not create file handle");
         Err(())
     }
 
@@ -225,22 +303,22 @@ impl Process {
         self.registers = registers;
     }
 
+    pub fn code_addr(&self) -> u64 {
+        self.code_addr
+    }
+
+    pub fn set_code_addr(&mut self, addr: u64) {
+        self.code_addr = addr;
+    }
+
     pub fn ptr_from_addr(&self, addr: u64) -> *mut u8 {
-        let code_addr = self.code_addr;
+        let code_addr = self.code_addr();
 
         if addr < code_addr {
             (code_addr + addr) as *mut u8
         } else {
             addr as *mut u8
         }
-    }
-
-    fn exec(&self) {
-        todo!();
-    }
-
-    pub fn exit(self, code: u8) -> ExitCode {
-        todo!();
     }
 }
 

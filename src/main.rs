@@ -7,7 +7,7 @@ use prestige::{
     init,
     kernel::{
         hlt_loop,
-        io::vga::{fatal, print},
+        io::{fatal, print},
         multitask::executor::Executor,
     },
 };
@@ -17,7 +17,7 @@ entry_point!(kmain);
 fn kmain(boot_info: &'static BootInfo) -> ! {
     init(boot_info);
 
-    print!("\x1b[?25h");
+    print!("Hello, World!");
 
     let mut executor = Executor::new();
     executor.run();

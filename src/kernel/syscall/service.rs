@@ -55,7 +55,7 @@ pub(super) fn tspawn() {
 }
 
 pub(super) fn pfork() -> isize {
-    let calling_proc = process::current_process();
+    let mut calling_proc = process::current_process();
 
     if let Ok(child) = calling_proc.fork() {
         return child.id() as isize;

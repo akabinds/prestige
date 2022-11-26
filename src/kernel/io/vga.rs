@@ -1,7 +1,4 @@
-use super::{
-    console::{self, Style},
-    PARSER,
-};
+use super::{console, PARSER};
 use bit_field::BitField;
 use core::{
     fmt::{self, Write},
@@ -126,7 +123,7 @@ impl Color {
         }
     }
 
-    fn to_vga_reg(&self) -> u8 {
+    fn to_vga_reg(self) -> u8 {
         use Color::*;
 
         match self {
@@ -619,44 +616,11 @@ fn set_underline_location(location: u8) {
 }
 
 #[doc(hidden)]
-pub fn _vga_print(args: fmt::Arguments) {
+pub fn vga_print(args: fmt::Arguments) {
     without_interrupts(|| {
         WRITER
             .lock()
             .write_fmt(args)
             .expect("Failed to write to VGA");
     });
-}
-
-pub macro print($($arg:tt)*) {
-    (_vga_print(format_args!($($arg)*)))
-}
-
-pub macro println {
-    () => (print!("\n")),
-    ($($arg:tt)*) => (print!("{}\n", format_args!($($arg)*)))
-}
-
-pub macro dbg($($arg:tt)*) {
-    let color = Style::color("Cyan");
-    let reset = Style::reset();
-    println!("{}DEBUG:{} {}", color, reset, format_args!($($arg)*))
-}
-
-pub macro exception($($arg:tt)*) {
-    let color = Style::color("LightRed");
-    let reset = Style::reset();
-    println!("{}EXCEPTION:{} {}", color, reset, format_args!($($arg)*))
-}
-
-pub macro recoverable($($arg:tt)*) {
-    let color = Style::color("LightRed");
-    let reset = Style::reset();
-    println!("{}ERROR:{} {}", color, reset, format_args!($($arg)*))
-}
-
-pub macro fatal($($arg:tt)*) {
-    let color = Style::color("Red");
-    let reset = Style::reset();
-    println!("{}FATAL ERROR:{} {}", color, reset, format_args!($($arg)*))
 }

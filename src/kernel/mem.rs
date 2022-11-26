@@ -13,12 +13,17 @@ use x86_64::{
 };
 
 static ALLOCATED_FRAMES: AtomicUsize = AtomicUsize::new(0);
+static mut PHYS_MEM_OFFSET: u64 = 0;
+static mut MEMORY_MAP: Option<&MemoryMap> = None;
 
 pub fn init(boot_info: &'static BootInfo) {
     interrupts::without_interrupts(|| {
-        let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+        unsafe {
+            PHYS_MEM_OFFSET = boot_info.physical_memory_offset;
+            MEMORY_MAP.replace(&boot_info.memory_map);
+        }
 
-        let mut mapper = unsafe { mapper(phys_mem_offset) };
+        let mut mapper = unsafe { mapper(VirtAddr::new(PHYS_MEM_OFFSET)) };
         let mut frame_alloc = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_map) };
 
         allocator::init_heap(&mut mapper, &mut frame_alloc).expect("Failed to initialize heap");

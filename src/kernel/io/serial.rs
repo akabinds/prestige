@@ -1,17 +1,16 @@
+use super::{console, PARSER};
 use core::fmt::{self, Write};
 use lazy_static::lazy_static;
 use spin::Mutex;
 use uart_16550::SerialPort;
-use vte::Perform;
+use vte::{Params, Perform};
 
-use super::PARSER;
+pub fn init() {
+    SERIAL.lock().init();
+}
 
 lazy_static! {
-    static ref SERIAL: Mutex<Serial> = {
-        let mut serial = Serial::new(0x3F8);
-        serial.init();
-        Mutex::new(serial)
-    };
+    pub static ref SERIAL: Mutex<Serial> = Mutex::new(Serial::new(0x3F8));
 }
 
 pub struct Serial {
@@ -29,7 +28,7 @@ impl Serial {
         self.port.init();
     }
 
-    fn read_byte(&mut self) -> u8 {
+    pub fn read_byte(&mut self) -> u8 {
         self.port.receive()
     }
 
@@ -38,7 +37,29 @@ impl Serial {
     }
 }
 
-impl Perform for Serial {}
+impl Perform for Serial {
+    fn csi_dispatch(&mut self, params: &Params, _: &[u8], _: bool, c: char) {
+        match c {
+            'h' => {
+                for param in params.iter() {
+                    match param[0] {
+                        12 => console::switch_echo("enable"),
+                        _ => return,
+                    }
+                }
+            }
+            'l' => {
+                for param in params.iter() {
+                    match param[0] {
+                        12 => console::switch_echo("disable"),
+                        _ => return,
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
 
 impl fmt::Write for Serial {
     fn write_str(&mut self, s: &str) -> fmt::Result {
@@ -54,7 +75,7 @@ impl fmt::Write for Serial {
 }
 
 #[doc(hidden)]
-pub fn _serial_print(args: fmt::Arguments) {
+pub fn serial_print(args: fmt::Arguments) {
     use x86_64::instructions::interrupts::without_interrupts;
 
     without_interrupts(|| {
@@ -63,14 +84,4 @@ pub fn _serial_print(args: fmt::Arguments) {
             .write_fmt(args)
             .expect("Failed to write to serial port")
     });
-}
-
-pub macro serial_print($($arg:tt)*) {
-    _serial_print(format_args!($($arg)*));
-}
-
-pub macro serial_println {
-    () => (serial_print!("\n")),
-    ($fmt:expr) => (serial_print!(concat!($fmt, "\n"))),
-    ($fmt:expr, $($arg:tt)*) => (serial_print!(concat!($fmt, "\n"), $($arg)*))
 }

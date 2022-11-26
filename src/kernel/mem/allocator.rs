@@ -1,7 +1,9 @@
+use crate::k::{io::recoverable, process};
 use linked_list_allocator::LockedHeap;
 use x86_64::{
     structures::paging::{
-        mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB,
+        mapper::MapToError, page::PageRangeInclusive, FrameAllocator, Mapper, Page, PageTableFlags,
+        Size4KiB,
     },
     VirtAddr,
 };
@@ -17,6 +19,7 @@ pub(super) fn init_heap(
     frame_alloc: &mut impl FrameAllocator<Size4KiB>,
 ) -> Result<(), MapToError<Size4KiB>> {
     let heap_start = VirtAddr::new(HEAP_START as u64);
+    process::init((HEAP_START + HEAP_SIZE) as u64);
 
     let page_range = {
         let heap_end = heap_start + HEAP_SIZE - 1u64;
@@ -43,11 +46,53 @@ pub(super) fn init_heap(
 }
 
 pub fn alloc(addr: u64, size: usize) -> Result<(), ()> {
-    todo!();
+    let mut mapper = unsafe { super::mapper(VirtAddr::new(super::PHYS_MEM_OFFSET)) };
+    let mut frame_alloc =
+        unsafe { super::BootInfoFrameAllocator::init(super::MEMORY_MAP.unwrap()) };
+    let flags =
+        PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
+
+    let pages = {
+        let start_page = Page::containing_address(VirtAddr::new(addr));
+        let end_page = Page::containing_address(VirtAddr::new(addr + (size as u64) - 1));
+        Page::range_inclusive(start_page, end_page)
+    };
+
+    for page in pages {
+        if let Some(frame) = frame_alloc.allocate_frame() {
+            unsafe {
+                if let Ok(mapping) = mapper.map_to(page, frame, flags, &mut frame_alloc) {
+                    mapping.flush();
+                } else {
+                    recoverable!("Unable to map {:?}", page);
+                    return Err(());
+                }
+            }
+        } else {
+            recoverable!("Unable to allocate frame for {:?}", page);
+            return Err(());
+        }
+    }
+
+    Ok(())
 }
 
 pub fn free(addr: u64, size: usize) {
-    todo!();
+    let mut mapper = unsafe { super::mapper(VirtAddr::new(super::PHYS_MEM_OFFSET)) };
+
+    let pages: PageRangeInclusive<Size4KiB> = {
+        let start_page = Page::containing_address(VirtAddr::new(addr));
+        let end_page = Page::containing_address(VirtAddr::new(addr + (size as u64) - 1));
+        Page::range_inclusive(start_page, end_page)
+    };
+
+    for page in pages {
+        if let Ok((_frame, mapping)) = mapper.unmap(page) {
+            mapping.flush();
+        } else {
+            recoverable!("Unable to unmap {:?}", page);
+        }
+    }
 }
 
 #[alloc_error_handler]

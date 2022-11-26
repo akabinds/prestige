@@ -1,4 +1,4 @@
-use super::{vga::print, Stdin, STDIN};
+use super::{print, STDIN};
 use crate::kernel::fs::FileIO;
 use alloc::{
     string::{String, ToString},
@@ -180,11 +180,20 @@ pub fn handle_key_inp(key: char) {
 
         if is_enabled("echo") {
             match key {
-                ETXT => print!("^C"),
-                EOT => print!("^D"),
-                ESC => print!("^["),
-                _ => print!("{key}"),
+                ETXT => console_print(format_args!("^C")),
+                EOT => console_print(format_args!("^D")),
+                ESC => console_print(format_args!("^[")),
+                _ => console_print(format_args!("{key}")),
             }
         }
+    }
+}
+
+#[doc(hidden)]
+pub fn console_print(args: fmt::Arguments) {
+    if cfg!(feature = "vga") {
+        super::vga::vga_print(args);
+    } else {
+        super::serial::serial_print(args);
     }
 }
