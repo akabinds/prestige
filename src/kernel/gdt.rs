@@ -8,7 +8,7 @@ use x86_64::{
     VirtAddr,
 };
 
-pub fn init() {
+pub(crate) fn init() {
     GlobalDescriptorTable::init();
 }
 
@@ -31,7 +31,7 @@ lazy_static! {
         ist!(tss, DOUBLE_FAULT_IST_INDEX PAGE_FAULT_IST_INDEX);
         tss
     };
-    pub static ref GDT: (GlobalDescriptorTable, Selectors) = {
+    pub(crate) static ref GDT: (GlobalDescriptorTable, Selectors) = {
         let mut gdt = GlobalDescriptorTable::new();
 
         let code = gdt.add_entry(Descriptor::kernel_code_segment());
@@ -53,7 +53,7 @@ lazy_static! {
     };
 }
 
-pub struct Selectors {
+pub(crate) struct Selectors {
     tss: SegmentSelector,
     code: SegmentSelector,
     data: SegmentSelector,

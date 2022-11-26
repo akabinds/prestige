@@ -11,8 +11,8 @@ use x86_64::{
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
-pub const HEAP_START: usize = 0x_4444_4444_0000;
-pub const HEAP_SIZE: usize = 100 * 1024;
+pub(crate) const HEAP_START: usize = 0x_4444_4444_0000;
+pub(crate) const HEAP_SIZE: usize = 100 * 1024;
 
 pub(super) fn init_heap(
     mapper: &mut impl Mapper<Size4KiB>,
@@ -45,7 +45,7 @@ pub(super) fn init_heap(
     Ok(())
 }
 
-pub fn alloc(addr: u64, size: usize) -> Result<(), ()> {
+pub(crate) fn alloc(addr: u64, size: usize) -> Result<(), ()> {
     let mut mapper = unsafe { super::mapper(VirtAddr::new(super::PHYS_MEM_OFFSET)) };
     let mut frame_alloc =
         unsafe { super::BootInfoFrameAllocator::init(super::MEMORY_MAP.unwrap()) };
@@ -77,7 +77,7 @@ pub fn alloc(addr: u64, size: usize) -> Result<(), ()> {
     Ok(())
 }
 
-pub fn free(addr: u64, size: usize) {
+pub(crate) fn free(addr: u64, size: usize) {
     let mut mapper = unsafe { super::mapper(VirtAddr::new(super::PHYS_MEM_OFFSET)) };
 
     let pages: PageRangeInclusive<Size4KiB> = {

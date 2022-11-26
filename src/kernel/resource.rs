@@ -4,7 +4,7 @@ use super::{
 };
 
 #[derive(Debug, Clone)]
-pub enum Resource {
+pub(crate) enum Resource {
     Device(Device),
     File(File),
     Directory(Directory),
@@ -33,13 +33,13 @@ impl FileIO for Resource {
 }
 
 #[derive(Debug, Clone)]
-pub enum Device {
+pub(crate) enum Device {
     Null,
     Console(Console),
 }
 
 impl Device {
-    pub fn create() -> Self {
+    pub(crate) fn create() -> Self {
         todo!();
     }
 }

@@ -1,40 +1,12 @@
-use super::{print, STDIN};
-use crate::kernel::fs::FileIO;
-use alloc::{
-    string::{String, ToString},
-    vec,
-};
+use super::print;
+use crate::kernel::{fs::FileIO, interrupts::halt};
+use alloc::string::{String, ToString};
 use core::{
     fmt,
     sync::atomic::{AtomicBool, Ordering},
 };
-
-pub static ECHO: AtomicBool = AtomicBool::new(true);
-pub static RAW: AtomicBool = AtomicBool::new(false);
-
-pub fn switch_echo(cmd: &str) {
-    match cmd {
-        "enable" => ECHO.store(true, Ordering::SeqCst),
-        "disable" => ECHO.store(false, Ordering::SeqCst),
-        _ => (),
-    }
-}
-
-pub fn switch_raw(cmd: &str) {
-    match cmd {
-        "enable" => RAW.store(true, Ordering::SeqCst),
-        "disable" => RAW.store(false, Ordering::SeqCst),
-        _ => (),
-    }
-}
-
-fn is_enabled(mode: &str) -> bool {
-    match mode {
-        "echo" => ECHO.load(Ordering::SeqCst),
-        "raw" => RAW.load(Ordering::SeqCst),
-        _ => false,
-    }
-}
+use spin::Mutex;
+use x86_64::instructions::interrupts as x86_64cint; // x86_64 crate interrupts
 
 #[derive(Clone, Copy)]
 pub struct Style {
@@ -69,28 +41,28 @@ impl Style {
         Self::color_to_fg(color).map(|fg| fg + 10)
     }
 
-    pub fn foreground(color: &str) -> Self {
+    fn foreground(color: &str) -> Self {
         Self {
             fg: Self::color_to_fg(color),
             bg: None,
         }
     }
 
-    pub fn with_foreground(self, color: &str) -> Self {
+    fn with_foreground(self, color: &str) -> Self {
         Self {
             fg: Self::color_to_fg(color),
             bg: self.bg,
         }
     }
 
-    pub fn background(color: &str) -> Self {
+    fn background(color: &str) -> Self {
         Self {
             fg: None,
             bg: Self::color_to_bg(color),
         }
     }
 
-    pub fn with_background(self, color: &str) -> Self {
+    fn with_background(self, color: &str) -> Self {
         Self {
             fg: self.fg,
             bg: Self::color_to_bg(color),
@@ -101,7 +73,7 @@ impl Style {
         Self::foreground(color)
     }
 
-    pub fn with_color(self, color: &str) -> Self {
+    fn with_color(self, color: &str) -> Self {
         self.with_foreground(color)
     }
 
@@ -126,23 +98,97 @@ impl fmt::Display for Style {
     }
 }
 
+static INPUT: Mutex<String> = Mutex::new(String::new());
+static ECHO: AtomicBool = AtomicBool::new(true);
+static RAW: AtomicBool = AtomicBool::new(false);
+
+pub(super) fn switch_echo(cmd: &str) {
+    match cmd {
+        "enable" => ECHO.store(true, Ordering::SeqCst),
+        "disable" => ECHO.store(false, Ordering::SeqCst),
+        _ => (),
+    }
+}
+
+fn switch_raw(cmd: &str) {
+    match cmd {
+        "enable" => RAW.store(true, Ordering::SeqCst),
+        "disable" => RAW.store(false, Ordering::SeqCst),
+        _ => (),
+    }
+}
+
+fn is_enabled(mode: &str) -> bool {
+    match mode {
+        "echo" => ECHO.load(Ordering::SeqCst),
+        "raw" => RAW.load(Ordering::SeqCst),
+        _ => false,
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct Console;
+pub(crate) struct Console;
 
 impl Console {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {}
+    }
+
+    fn read_char() -> char {
+        switch_echo("disable");
+        switch_raw("enable");
+
+        loop {
+            halt();
+
+            let res = x86_64cint::without_interrupts(|| {
+                let mut inp = INPUT.lock();
+
+                if !inp.is_empty() {
+                    Some(inp.remove(0))
+                } else {
+                    None
+                }
+            });
+
+            if let Some(c) = res {
+                switch_echo("enable");
+                switch_raw("disable");
+                return c;
+            }
+        }
+    }
+
+    fn read_line() -> String {
+        loop {
+            halt();
+
+            let res = x86_64cint::without_interrupts(|| {
+                let mut inp = INPUT.lock();
+
+                match inp.chars().next_back() {
+                    Some('\n') => {
+                        let line = inp.clone();
+                        inp.clear();
+                        Some(line)
+                    }
+                    _ => None,
+                }
+            });
+
+            if let Some(line) = res {
+                return line;
+            }
+        }
     }
 }
 
 impl FileIO for Console {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
-        let stdin = STDIN.lock();
-
         let mut s = if buf.len() == 4 {
-            stdin.read_char(&mut buf.to_vec()).unwrap().to_string()
+            Self::read_char().to_string()
         } else {
-            stdin.read_line(&mut buf.to_vec())
+            Self::read_line()
         };
 
         s.truncate(buf.len());
@@ -164,11 +210,26 @@ const EOT: char = '\x04';
 const BACKSPACE: char = '\x08';
 const ESC: char = '\x1b';
 
-pub fn handle_key_inp(key: char) {
-    let mut stdin = STDIN.lock();
+pub(crate) fn handle_key_inp(key: char) {
+    let mut inp = INPUT.lock();
 
     if key == BACKSPACE && !is_enabled("raw") {
-        todo!();
+        if let Some(c) = inp.pop() {
+            if is_enabled("echo") {
+                let n = match c {
+                    ETXT | EOT | ESC => 2,
+                    _ => {
+                        if (c as u32) < 0xFF {
+                            1
+                        } else {
+                            c.len_utf8()
+                        }
+                    }
+                };
+
+                console_print(format_args!("{}", BACKSPACE.to_string().repeat(n)));
+            }
+        }
     } else {
         let key = if (key as u32) < 0xFF {
             (key as u8) as char
@@ -176,7 +237,7 @@ pub fn handle_key_inp(key: char) {
             key
         };
 
-        stdin.read_char(&mut vec![0; 4]);
+        inp.push(key);
 
         if is_enabled("echo") {
             match key {
@@ -190,7 +251,7 @@ pub fn handle_key_inp(key: char) {
 }
 
 #[doc(hidden)]
-pub fn console_print(args: fmt::Arguments) {
+pub(crate) fn console_print(args: fmt::Arguments) {
     if cfg!(feature = "vga") {
         super::vga::vga_print(args);
     } else {

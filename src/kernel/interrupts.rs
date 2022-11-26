@@ -1,24 +1,39 @@
 use super::{
     gdt, hlt_loop,
-    io::{console, exception, keyboard, println, serial::SERIAL},
+    io::{
+        console, exception,
+        keyboard::{self, ALT, CTRL, SHIFT},
+        kprint, println,
+        serial::SERIAL,
+    },
     process::Registers,
     syscall, Initialize,
 };
-use core::arch::asm;
+use core::{arch::asm, sync::atomic::Ordering};
 use lazy_static::lazy_static;
-use pc_keyboard::{DecodedKey, KeyCode};
+use pc_keyboard::{DecodedKey, KeyCode, KeyState};
 use pic8259::ChainedPics;
 use spin::Mutex;
 use x86_64::{
+    instructions::interrupts as x86_64cint, // x86_64 crate interrupts
     registers::control::Cr2,
     structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode},
     PrivilegeLevel,
 };
 
-pub fn init() {
+pub(crate) fn init() {
     InterruptDescriptorTable::init();
     unsafe { PICS.lock().initialize() };
-    x86_64::instructions::interrupts::enable();
+    x86_64cint::enable();
+}
+
+pub(super) fn halt() {
+    let disabled = x86_64cint::are_enabled();
+    x86_64cint::enable_and_hlt();
+
+    if disabled {
+        x86_64cint::enable();
+    }
 }
 
 fn irq_idx(n: u8) -> usize {
@@ -91,8 +106,27 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_sf: InterruptStackFrame) {
         let scancode = keyboard::read_scancode();
 
         if let Ok(Some(key_event)) = kbd.add_byte(scancode) {
+            match key_event.code {
+                KeyCode::AltLeft | KeyCode::AltRight => {
+                    ALT.store(key_event.state == KeyState::Down, Ordering::Relaxed)
+                }
+                KeyCode::ShiftLeft | KeyCode::ShiftRight => {
+                    SHIFT.store(key_event.state == KeyState::Down, Ordering::Relaxed)
+                }
+                KeyCode::ControlLeft | KeyCode::ControlRight => {
+                    CTRL.store(key_event.state == KeyState::Down, Ordering::Relaxed)
+                }
+                _ => {}
+            }
+
+            let is_alt = ALT.load(Ordering::Relaxed);
+            let is_ctrl = CTRL.load(Ordering::Relaxed);
+            let is_shift = SHIFT.load(Ordering::Relaxed);
+
             if let Some(key) = kbd.process_keyevent(key_event) {
                 match key {
+                    DecodedKey::Unicode('\t') if is_shift => keyboard::send_csi('Z'),
+                    DecodedKey::Unicode('\u{7f}') if is_ctrl && is_alt => todo!(),
                     DecodedKey::Unicode(c) => keyboard::send_key(c),
                     DecodedKey::RawKey(KeyCode::ArrowUp) => keyboard::send_csi('A'),
                     DecodedKey::RawKey(KeyCode::ArrowDown) => keyboard::send_csi('B'),

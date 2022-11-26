@@ -1,15 +1,15 @@
-pub mod fs;
-pub mod gdt;
-pub mod interrupts;
+mod fs;
+pub(crate) mod gdt;
+pub(crate) mod interrupts;
 pub mod io;
-pub mod mem;
+pub(crate) mod mem;
 pub mod multitask;
-pub mod net;
-pub mod process;
-pub mod resource;
-pub mod syscall;
+mod net;
+mod process;
+mod resource;
+mod syscall;
 
-pub trait Initialize {
+trait Initialize {
     fn init();
 }
 

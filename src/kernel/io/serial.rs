@@ -4,16 +4,17 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 use uart_16550::SerialPort;
 use vte::{Params, Perform};
+use x86_64::instructions::interrupts as x86_64cint; // x86_64 crate interrupts
 
-pub fn init() {
+pub(crate) fn init() {
     SERIAL.lock().init();
 }
 
 lazy_static! {
-    pub static ref SERIAL: Mutex<Serial> = Mutex::new(Serial::new(0x3F8));
+    pub(crate) static ref SERIAL: Mutex<Serial> = Mutex::new(Serial::new(0x3F8));
 }
 
-pub struct Serial {
+pub(crate) struct Serial {
     port: SerialPort,
 }
 
@@ -28,7 +29,7 @@ impl Serial {
         self.port.init();
     }
 
-    pub fn read_byte(&mut self) -> u8 {
+    pub(crate) fn read_byte(&mut self) -> u8 {
         self.port.receive()
     }
 
@@ -75,10 +76,8 @@ impl fmt::Write for Serial {
 }
 
 #[doc(hidden)]
-pub fn serial_print(args: fmt::Arguments) {
-    use x86_64::instructions::interrupts::without_interrupts;
-
-    without_interrupts(|| {
+pub(super) fn serial_print(args: fmt::Arguments) {
+    x86_64cint::without_interrupts(|| {
         SERIAL
             .lock()
             .write_fmt(args)

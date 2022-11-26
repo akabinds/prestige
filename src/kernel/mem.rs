@@ -1,4 +1,4 @@
-pub mod allocator;
+pub(crate) mod allocator;
 
 use bootloader::{
     bootinfo::{MemoryMap, MemoryRegionType},
@@ -16,7 +16,7 @@ static ALLOCATED_FRAMES: AtomicUsize = AtomicUsize::new(0);
 static mut PHYS_MEM_OFFSET: u64 = 0;
 static mut MEMORY_MAP: Option<&MemoryMap> = None;
 
-pub fn init(boot_info: &'static BootInfo) {
+pub(crate) fn init(boot_info: &'static BootInfo) {
     interrupts::without_interrupts(|| {
         unsafe {
             PHYS_MEM_OFFSET = boot_info.physical_memory_offset;

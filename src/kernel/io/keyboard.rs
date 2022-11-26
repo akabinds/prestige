@@ -1,23 +1,27 @@
+use core::sync::atomic::AtomicBool;
+
+use super::console;
 use pc_keyboard::{layouts, DecodedKey, Error, HandleControl, KeyEvent, Keyboard, ScancodeSet1};
 use spin::Mutex;
 use x86_64::instructions::port::Port;
 
-use super::console;
+pub(crate) static KEYBOARD: Mutex<Option<KeyboardLayout>> = Mutex::new(None);
+pub(crate) static ALT: AtomicBool = AtomicBool::new(false);
+pub(crate) static CTRL: AtomicBool = AtomicBool::new(false);
+pub(crate) static SHIFT: AtomicBool = AtomicBool::new(false);
 
-pub static KEYBOARD: Mutex<Option<KeyboardLayout>> = Mutex::new(None);
-
-pub fn init() {
+pub(crate) fn init() {
     set_kbd_layout(option_env!("KBD_LAYOUT").unwrap_or("qwerty"));
 }
 
-pub enum KeyboardLayout {
+pub(crate) enum KeyboardLayout {
     Azerty(Keyboard<layouts::Azerty, ScancodeSet1>),
     Dvorak(Keyboard<layouts::Dvorak104Key, ScancodeSet1>),
     Qwerty(Keyboard<layouts::Us104Key, ScancodeSet1>),
 }
 
 impl KeyboardLayout {
-    pub fn add_byte(&mut self, scancode: u8) -> Result<Option<KeyEvent>, Error> {
+    pub(crate) fn add_byte(&mut self, scancode: u8) -> Result<Option<KeyEvent>, Error> {
         match self {
             KeyboardLayout::Azerty(keyboard) => keyboard.add_byte(scancode),
             KeyboardLayout::Dvorak(keyboard) => keyboard.add_byte(scancode),
@@ -25,7 +29,7 @@ impl KeyboardLayout {
         }
     }
 
-    pub fn process_keyevent(&mut self, key_event: KeyEvent) -> Option<DecodedKey> {
+    pub(crate) fn process_keyevent(&mut self, key_event: KeyEvent) -> Option<DecodedKey> {
         match self {
             KeyboardLayout::Azerty(keyboard) => keyboard.process_keyevent(key_event),
             KeyboardLayout::Dvorak(keyboard) => keyboard.process_keyevent(key_event),
@@ -45,22 +49,22 @@ impl KeyboardLayout {
     }
 }
 
-pub fn set_kbd_layout(layout: &str) {
+pub(crate) fn set_kbd_layout(layout: &str) {
     if let Some(kbd) = KeyboardLayout::from(layout) {
         *KEYBOARD.lock() = Some(kbd);
     }
 }
 
-pub fn read_scancode() -> u8 {
+pub(crate) fn read_scancode() -> u8 {
     let mut port = Port::new(0x60);
     unsafe { port.read() }
 }
 
-pub fn send_key(k: char) {
+pub(crate) fn send_key(k: char) {
     console::handle_key_inp(k);
 }
 
-pub fn send_csi(c: char) {
+pub(crate) fn send_csi(c: char) {
     send_key('\x1B');
     send_key('[');
     send_key(c);

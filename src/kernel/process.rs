@@ -17,13 +17,13 @@ use lazy_static::lazy_static;
 use spin::RwLock;
 use x86_64::{structures::idt::InterruptStackFrameValue, VirtAddr};
 
-pub fn init(addr: u64) {
+pub(crate) fn init(addr: u64) {
     CODE_ADDR.store(addr, Ordering::SeqCst);
 }
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub enum ExitCode {
+pub(crate) enum ExitCode {
     Success = 0,
     GeneralFailure = 1,
     UsageFault = 60,
@@ -59,39 +59,39 @@ impl From<usize> for ExitCode {
 
 #[repr(align(8), C)]
 #[derive(Debug, Clone, Copy, Default)]
-pub struct Registers {
-    pub rax: usize,
-    pub rbx: usize,
-    pub rcx: usize,
-    pub rdx: usize,
-    pub rsi: usize,
-    pub rdi: usize,
-    pub rbp: usize,
-    pub rsp: usize,
-    pub r8: usize,
-    pub r9: usize,
-    pub r10: usize,
-    pub r11: usize,
+pub(crate) struct Registers {
+    pub(crate) rax: usize,
+    pub(crate) rbx: usize,
+    pub(crate) rcx: usize,
+    pub(crate) rdx: usize,
+    pub(crate) rsi: usize,
+    pub(crate) rdi: usize,
+    pub(crate) rbp: usize,
+    pub(crate) rsp: usize,
+    pub(crate) r8: usize,
+    pub(crate) r9: usize,
+    pub(crate) r10: usize,
+    pub(crate) r11: usize,
 }
 
 #[derive(Debug, Clone)]
-pub struct Thread {
+pub(crate) struct Thread {
     id: usize,
     proc: usize, // PID of the process containing this thread
                  // WIP
 }
 
 impl Thread {
-    pub fn new(id: usize, proc: usize) -> Self {
+    pub(crate) fn new(id: usize, proc: usize) -> Self {
         Self { id, proc }
     }
 
-    pub fn id(&self) -> usize {
+    pub(crate) fn id(&self) -> usize {
         self.id
     }
 }
 
-pub fn current_thread() -> Thread {
+pub(crate) fn current_thread() -> Thread {
     let calling_proc = current_process();
 
     todo!();
@@ -105,12 +105,12 @@ const MAX_PROC_SIZE: usize = 4 << 40;
 static CODE_ADDR: AtomicU64 = AtomicU64::new(0);
 
 lazy_static! {
-    pub static ref PROCESSES: RwLock<[Box<Process>; MAX_PROCESSES]> =
+    pub(crate) static ref PROCESSES: RwLock<[Box<Process>; MAX_PROCESSES]> =
         RwLock::new([(); MAX_PROCESSES].map(|_| Box::new(Process::new(0, "/", None))));
 }
 
 #[derive(Debug, Clone)]
-pub struct Process {
+pub(crate) struct Process {
     id: usize,
     code_addr: u64,
     stack_addr: u64,
@@ -127,7 +127,7 @@ pub struct Process {
 }
 
 impl Process {
-    pub fn new(id: usize, dir: &str, user: Option<&str>) -> Self {
+    pub(crate) fn new(id: usize, dir: &str, user: Option<&str>) -> Self {
         let stack_frame = InterruptStackFrameValue {
             instruction_pointer: VirtAddr::new(0),
             code_segment: 0,
@@ -163,7 +163,7 @@ impl Process {
         }
     }
 
-    pub fn spawn(bin: &[u8], args_ptr: usize, args_len: usize) -> Result<(), ExitCode> {
+    pub(crate) fn spawn(bin: &[u8], args_ptr: usize, args_len: usize) -> Result<(), ExitCode> {
         if let Ok(id) = Self::init(bin) {
             let proc = PROCESSES.read()[id].clone();
             proc.exec(args_ptr, args_len);
@@ -181,7 +181,7 @@ impl Process {
         todo!();
     }
 
-    pub fn fork(&mut self) -> Result<Self, ExitCode> {
+    pub(crate) fn fork(&mut self) -> Result<Self, ExitCode> {
         let mut child = self.clone();
         child.set_id(self.id() + 1);
         child.set_parent(self.id());
@@ -213,33 +213,33 @@ impl Process {
         }
     }
 
-    pub fn exit(self, code: u8) -> ExitCode {
+    pub(crate) fn exit(self, code: u8) -> ExitCode {
         allocator::free(self.code_addr, MAX_PROC_SIZE);
 
         ExitCode::from(code as usize)
     }
 
-    pub fn id(&self) -> usize {
+    pub(crate) fn id(&self) -> usize {
         self.id
     }
 
-    pub fn set_id(&mut self, id: usize) {
+    pub(crate) fn set_id(&mut self, id: usize) {
         self.id = id;
     }
 
-    pub fn parent(&self) -> Option<Box<Self>> {
+    pub(crate) fn parent(&self) -> Option<Box<Self>> {
         self.parent.map(|pid| PROCESSES.read()[pid].clone())
     }
 
-    pub fn set_parent(&mut self, pid: usize) {
+    pub(crate) fn set_parent(&mut self, pid: usize) {
         self.parent = Some(pid);
     }
 
-    pub fn handle(&self, handle: usize) -> Option<Box<Resource>> {
+    pub(crate) fn handle(&self, handle: usize) -> Option<Box<Resource>> {
         self.resource_handles[handle].clone()
     }
 
-    pub fn create_handle(&mut self, resource: Resource) -> Result<usize, ()> {
+    pub(crate) fn create_handle(&mut self, resource: Resource) -> Result<usize, ()> {
         let (min, max) = (4, MAX_RESOURCE_HANDLES);
 
         for handle in min..max {
@@ -253,65 +253,65 @@ impl Process {
         Err(())
     }
 
-    pub fn update_handle(&mut self, handle: usize, updated: Resource) {
+    pub(crate) fn update_handle(&mut self, handle: usize, updated: Resource) {
         self.resource_handles[handle] = Some(Box::new(updated));
     }
 
-    pub fn delete_handle(&mut self, handle: usize) {
+    pub(crate) fn delete_handle(&mut self, handle: usize) {
         self.resource_handles[handle] = None;
     }
 
-    pub fn get_env(&self, key: &str) -> String {
+    pub(crate) fn get_env(&self, key: &str) -> String {
         self.env[key].clone()
     }
 
-    pub fn set_env(&mut self, key: &str, value: &str) {
+    pub(crate) fn set_env(&mut self, key: &str, value: &str) {
         if let Some(v) = self.env.get_mut(key) {
             *v = value.into();
         }
     }
 
-    pub fn dir(&self) -> String {
+    pub(crate) fn dir(&self) -> String {
         self.dir.clone()
     }
 
-    pub fn set_dir(&mut self, dir: &str) {
+    pub(crate) fn set_dir(&mut self, dir: &str) {
         self.dir = dir.into();
     }
 
-    pub fn user(&self) -> Option<String> {
+    pub(crate) fn user(&self) -> Option<String> {
         self.user.clone()
     }
 
-    pub fn set_user(&mut self, user: &str) {
+    pub(crate) fn set_user(&mut self, user: &str) {
         self.user = Some(user.into());
     }
 
-    pub fn stack_frame(&self) -> InterruptStackFrameValue {
+    pub(crate) fn stack_frame(&self) -> InterruptStackFrameValue {
         self.stack_frame
     }
 
-    pub fn set_stack_frame(&mut self, sf: InterruptStackFrameValue) {
+    pub(crate) fn set_stack_frame(&mut self, sf: InterruptStackFrameValue) {
         self.stack_frame = sf;
     }
 
-    pub fn registers(&self) -> Registers {
+    pub(crate) fn registers(&self) -> Registers {
         self.registers
     }
 
-    pub fn set_registers(&mut self, registers: Registers) {
+    pub(crate) fn set_registers(&mut self, registers: Registers) {
         self.registers = registers;
     }
 
-    pub fn code_addr(&self) -> u64 {
+    pub(crate) fn code_addr(&self) -> u64 {
         self.code_addr
     }
 
-    pub fn set_code_addr(&mut self, addr: u64) {
+    pub(crate) fn set_code_addr(&mut self, addr: u64) {
         self.code_addr = addr;
     }
 
-    pub fn ptr_from_addr(&self, addr: u64) -> *mut u8 {
+    pub(crate) fn ptr_from_addr(&self, addr: u64) -> *mut u8 {
         let code_addr = self.code_addr();
 
         if addr < code_addr {
@@ -322,6 +322,6 @@ impl Process {
     }
 }
 
-pub fn current_process() -> Process {
+pub(crate) fn current_process() -> Process {
     *PROCESSES.read()[0].clone()
 }

@@ -8,9 +8,9 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
 use vte::{Params, Perform};
-use x86_64::instructions::{interrupts::without_interrupts, port::Port};
+use x86_64::instructions::{interrupts as x86_64cint, port::Port};
 
-pub fn init() {
+pub(crate) fn init() {
     set_attr_ctrl_reg(0x0, 0x00);
     set_attr_ctrl_reg(0x1, 0x01);
     set_attr_ctrl_reg(0x2, 0x02);
@@ -28,7 +28,7 @@ pub fn init() {
     set_attr_ctrl_reg(0xE, 0x3E);
     set_attr_ctrl_reg(0xF, 0x3F);
 
-    without_interrupts(|| {
+    x86_64cint::without_interrupts(|| {
         WRITER.lock().set_palette(Palette::default());
     });
 
@@ -572,7 +572,7 @@ fn is_printable(c: u8) -> bool {
 }
 
 fn get_attr_ctrl_reg(idx: u8) -> u8 {
-    without_interrupts(|| {
+    x86_64cint::without_interrupts(|| {
         let mut isr: Port<u8> = Port::new(INPUT_STATUS_REG);
         let mut addr: Port<u8> = Port::new(ATTR_ADDR_DATA_REG);
         let mut data: Port<u8> = Port::new(ATTR_DATA_READ_REG);
@@ -589,7 +589,7 @@ fn get_attr_ctrl_reg(idx: u8) -> u8 {
 }
 
 fn set_attr_ctrl_reg(idx: u8, value: u8) {
-    without_interrupts(|| {
+    x86_64cint::without_interrupts(|| {
         let mut isr: Port<u8> = Port::new(INPUT_STATUS_REG);
         let mut addr: Port<u8> = Port::new(ATTR_ADDR_DATA_REG);
 
@@ -604,7 +604,7 @@ fn set_attr_ctrl_reg(idx: u8, value: u8) {
 }
 
 fn set_underline_location(location: u8) {
-    without_interrupts(|| {
+    x86_64cint::without_interrupts(|| {
         let mut addr: Port<u8> = Port::new(CRTC_ADDR_REG);
         let mut data: Port<u8> = Port::new(CRTC_DATA_REG);
 
@@ -616,8 +616,8 @@ fn set_underline_location(location: u8) {
 }
 
 #[doc(hidden)]
-pub fn vga_print(args: fmt::Arguments) {
-    without_interrupts(|| {
+pub(super) fn vga_print(args: fmt::Arguments) {
+    x86_64cint::without_interrupts(|| {
         WRITER
             .lock()
             .write_fmt(args)
