@@ -121,3 +121,17 @@ pub(crate) fn open(path: &str, flags: usize) -> Option<Resource> {
         }
     }
 }
+
+#[repr(u8)]
+#[derive(Copy, Clone)]
+pub(crate) enum SeekFlag {
+    Start = 1,
+    Current = 2,
+    End = 3,
+}
+
+impl SeekFlag {
+    fn is_set(&self, flags: usize) -> bool {
+        flags & (*self as usize) != 0
+    }
+}

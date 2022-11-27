@@ -126,7 +126,7 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_sf: InterruptStackFrame) {
             if let Some(key) = kbd.process_keyevent(key_event) {
                 match key {
                     DecodedKey::Unicode('\t') if is_shift => keyboard::send_csi('Z'),
-                    DecodedKey::Unicode('\u{7f}') if is_ctrl && is_alt => todo!(),
+                    DecodedKey::Unicode('\u{7f}') if is_ctrl && is_alt => syscall::reboot(),
                     DecodedKey::Unicode(c) => keyboard::send_key(c),
                     DecodedKey::RawKey(KeyCode::ArrowUp) => keyboard::send_csi('A'),
                     DecodedKey::RawKey(KeyCode::ArrowDown) => keyboard::send_csi('B'),

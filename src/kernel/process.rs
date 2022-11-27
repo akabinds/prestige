@@ -60,18 +60,15 @@ impl From<usize> for ExitCode {
 #[repr(align(8), C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct Registers {
-    pub(crate) rax: usize,
-    pub(crate) rbx: usize,
-    pub(crate) rcx: usize,
-    pub(crate) rdx: usize,
-    pub(crate) rsi: usize,
-    pub(crate) rdi: usize,
-    pub(crate) rbp: usize,
-    pub(crate) rsp: usize,
-    pub(crate) r8: usize,
-    pub(crate) r9: usize,
-    pub(crate) r10: usize,
     pub(crate) r11: usize,
+    pub(crate) r10: usize,
+    pub(crate) r9: usize,
+    pub(crate) r8: usize,
+    pub(crate) rdi: usize,
+    pub(crate) rsi: usize,
+    pub(crate) rdx: usize,
+    pub(crate) rcx: usize,
+    pub(crate) rax: usize,
 }
 
 #[derive(Debug, Clone)]

@@ -1,5 +1,5 @@
 use super::print;
-use crate::kernel::{fs::FileIO, interrupts::halt};
+use crate::kernel::{fs::FileIO, interrupts::halt, io::kprint};
 use alloc::string::{String, ToString};
 use core::{
     fmt,
@@ -200,7 +200,7 @@ impl FileIO for Console {
     fn write(&mut self, buf: &[u8]) -> Result<usize, ()> {
         let s = String::from_utf8_lossy(buf);
         let n = s.len();
-        print!("{s}");
+        kprint!("{s}");
         Ok(n)
     }
 }
@@ -251,10 +251,14 @@ pub(crate) fn handle_key_inp(key: char) {
 }
 
 #[doc(hidden)]
-pub(crate) fn console_print(args: fmt::Arguments) {
-    if cfg!(feature = "vga") {
+pub fn console_print(args: fmt::Arguments) {
+    #[cfg(feature = "vga")]
+    {
         super::vga::vga_print(args);
-    } else {
+    }
+
+    #[cfg(feature = "serial")]
+    {
         super::serial::serial_print(args);
     }
 }

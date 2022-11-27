@@ -17,7 +17,7 @@ entry_point!(kmain);
 fn kmain(boot_info: &'static BootInfo) -> ! {
     init(boot_info);
 
-    print!("Hello, World!");
+    print!("\x1b[?25h");
 
     let mut executor = Executor::new();
     executor.run();

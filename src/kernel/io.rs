@@ -11,7 +11,7 @@ use alloc::{
 };
 use console::Style;
 use lazy_static::lazy_static;
-use spin::Mutex;
+use spin::{Mutex, MutexGuard};
 use vte::Parser;
 
 lazy_static! {
@@ -29,11 +29,23 @@ impl Stdin {
     }
 
     pub fn read_char(&self, buf: &mut [u8]) -> Option<char> {
-        todo!();
+        if let Some(bytes) = syscall::read(0, buf) {
+            if bytes > 0 {
+                buf.to_vec().resize(bytes, 0);
+                return Some(String::from_utf8_lossy(buf).to_string().remove(0));
+            }
+        }
+
+        None
     }
 
     pub fn read_line(&self, buf: &mut [u8]) -> String {
-        todo!();
+        if let Some(bytes) = syscall::read(0, buf) {
+            buf.to_vec().resize(bytes, 0);
+            String::from_utf8_lossy(buf).to_string()
+        } else {
+            String::new()
+        }
     }
 }
 
@@ -45,7 +57,7 @@ impl Stdout {
     }
 
     pub fn write(&self, s: &str) {
-        todo!();
+        syscall::write(1, s.as_bytes());
     }
 }
 
@@ -57,8 +69,20 @@ impl Stderr {
     }
 
     pub fn write(&self, s: &str) {
-        todo!();
+        syscall::write(2, s.as_bytes());
     }
+}
+
+pub fn stdin() -> MutexGuard<'static, Stdin> {
+    STDIN.lock()
+}
+
+pub fn stdout() -> MutexGuard<'static, Stdout> {
+    STDOUT.lock()
+}
+
+pub fn stderr() -> MutexGuard<'static, Stderr> {
+    STDERR.lock()
 }
 
 pub(super) macro kprint($($arg:tt)*) {
@@ -67,7 +91,7 @@ pub(super) macro kprint($($arg:tt)*) {
 
 pub macro print($($arg:tt)*) {
     let s = format!("{}", format_args!($($arg)*));
-    STDOUT.lock().write(&s);
+    stdout().write(&s);
 }
 
 pub macro println {
@@ -77,7 +101,7 @@ pub macro println {
 
 macro eprint($($arg:tt)*) {
     let s = format!("{}", format_args!($($arg)*));
-    STDERR.lock().write(&s);
+    stderr().write(&s);
 }
 
 macro eprintln {
