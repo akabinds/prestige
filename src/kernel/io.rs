@@ -29,23 +29,23 @@ impl Stdin {
     }
 
     pub fn read_char(&self, buf: &mut [u8]) -> Option<char> {
-        if let Some(bytes) = syscall::read(0, buf) {
-            if bytes > 0 {
-                buf.to_vec().resize(bytes, 0);
-                return Some(String::from_utf8_lossy(buf).to_string().remove(0));
-            }
-        }
+        let Some(bytes) = syscall::read(0, buf) else {
+            return None;
+        };
 
-        None
+        (bytes > 0).then(|| {
+            buf.to_vec().resize(bytes, 0);
+            String::from_utf8_lossy(buf).to_string().remove(0)
+        })
     }
 
     pub fn read_line(&self, buf: &mut [u8]) -> String {
-        if let Some(bytes) = syscall::read(0, buf) {
-            buf.to_vec().resize(bytes, 0);
-            String::from_utf8_lossy(buf).to_string()
-        } else {
-            String::new()
-        }
+        let Some(bytes) = syscall::read(0, buf) else {
+            return String::new();
+        };
+
+        buf.to_vec().resize(bytes, 0);
+        String::from_utf8_lossy(buf).to_string()
     }
 }
 

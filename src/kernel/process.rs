@@ -161,13 +161,13 @@ impl Process {
     }
 
     pub(crate) fn spawn(bin: &[u8], args_ptr: usize, args_len: usize) -> Result<(), ExitCode> {
-        if let Ok(id) = Self::init(bin) {
-            let proc = PROCESSES.read()[id].clone();
-            proc.exec(args_ptr, args_len);
-            Ok(())
-        } else {
-            Err(ExitCode::ExecFault)
-        }
+        let Ok(id) = Self::init(bin) else {
+            return Err(ExitCode::ExecFault);
+        };
+
+        let proc = PROCESSES.read()[id].clone();
+        proc.exec(args_ptr, args_len);
+        Ok(())
     }
 
     fn init(bin: &[u8]) -> Result<usize, ()> {

@@ -251,7 +251,7 @@ pub(crate) fn handle_key_inp(key: char) {
 }
 
 #[doc(hidden)]
-pub fn console_print(args: fmt::Arguments) {
+pub(super) fn console_print(args: fmt::Arguments) {
     #[cfg(feature = "vga")]
     {
         super::vga::vga_print(args);

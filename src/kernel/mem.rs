@@ -6,10 +6,11 @@ use bootloader::{
 };
 use core::sync::atomic::{AtomicUsize, Ordering};
 use x86_64::{
-    instructions::interrupts,
+    instructions::interrupts as x86_64cint, // x86_64 crate interrupts
     registers::control::Cr3,
     structures::paging::{FrameAllocator, OffsetPageTable, PageTable, PhysFrame, Size4KiB},
-    PhysAddr, VirtAddr,
+    PhysAddr,
+    VirtAddr,
 };
 
 static ALLOCATED_FRAMES: AtomicUsize = AtomicUsize::new(0);
@@ -17,7 +18,7 @@ static mut PHYS_MEM_OFFSET: u64 = 0;
 static mut MEMORY_MAP: Option<&MemoryMap> = None;
 
 pub(crate) fn init(boot_info: &'static BootInfo) {
-    interrupts::without_interrupts(|| {
+    x86_64cint::without_interrupts(|| {
         unsafe {
             PHYS_MEM_OFFSET = boot_info.physical_memory_offset;
             MEMORY_MAP.replace(&boot_info.memory_map);

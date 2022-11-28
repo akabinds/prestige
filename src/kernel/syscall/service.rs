@@ -8,27 +8,31 @@ use crate::kernel::{
 pub(super) fn read(handle: usize, buf: &mut [u8]) -> isize {
     let mut calling_proc = process::current_process();
 
-    if let Some(mut res) = calling_proc.handle(handle) {
-        if let Ok(bytes) = res.read(buf) {
-            calling_proc.update_handle(handle, *res);
-            return bytes as isize;
-        }
-    }
+    let Some(mut res) = calling_proc.handle(handle) else {
+        return -1;
+    };
 
-    -1
+    let Ok(bytes) = res.read(buf) else {
+        return -1;
+    };
+
+    calling_proc.update_handle(handle, *res);
+    bytes as isize
 }
 
 pub(super) fn write(handle: usize, buf: &[u8]) -> isize {
     let mut calling_proc = process::current_process();
 
-    if let Some(mut res) = calling_proc.handle(handle) {
-        if let Ok(bytes) = res.write(buf) {
-            calling_proc.update_handle(handle, *res);
-            return bytes as isize;
-        }
-    }
+    let Some(mut res) = calling_proc.handle(handle) else {
+        return -1;
+    };
 
-    0
+    let Ok(bytes) = res.write(buf) else {
+        return -1;
+    };
+
+    calling_proc.update_handle(handle, *res);
+    bytes as isize
 }
 
 pub(super) fn open(path: &str, flags: usize) -> isize {
@@ -43,12 +47,12 @@ pub(super) fn close(handle: usize) {
 pub(super) fn dup(old_handle: usize, new_handle: usize) -> isize {
     let mut calling_proc = process::current_process();
 
-    if let Some(handle) = calling_proc.handle(old_handle) {
-        calling_proc.update_handle(new_handle, *handle);
-        return new_handle as isize;
-    }
+    let Some(handle) = calling_proc.handle(old_handle) else {
+        return -1;
+    };
 
-    -1
+    calling_proc.update_handle(new_handle, *handle);
+    new_handle as isize
 }
 
 pub(super) fn seek(handle: usize, offset: usize, flags: usize) -> isize {
@@ -66,11 +70,11 @@ pub(super) fn tspawn() {
 pub(super) fn pfork() -> isize {
     let mut calling_proc = process::current_process();
 
-    if let Ok(child) = calling_proc.fork() {
-        return child.id() as isize;
-    }
+    let Ok(child) = calling_proc.fork() else {
+        return -1;
+    };
 
-    -1
+    child.id() as isize
 }
 
 pub(super) fn tclone() -> isize {

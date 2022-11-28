@@ -59,18 +59,18 @@ pub(crate) fn alloc(addr: u64, size: usize) -> Result<(), ()> {
     };
 
     for page in pages {
-        if let Some(frame) = frame_alloc.allocate_frame() {
-            unsafe {
-                if let Ok(mapping) = mapper.map_to(page, frame, flags, &mut frame_alloc) {
-                    mapping.flush();
-                } else {
-                    recoverable!("Unable to map {:?}", page);
-                    return Err(());
-                }
-            }
-        } else {
+        let Some(frame) = frame_alloc.allocate_frame() else {
             recoverable!("Unable to allocate frame for {:?}", page);
             return Err(());
+        };
+
+        unsafe {
+            let Ok(mapping) = mapper.map_to(page, frame, flags, &mut frame_alloc) else {
+                recoverable!("Unable to map {:?}", page);
+                return Err(());
+            };
+
+            mapping.flush();
         }
     }
 
@@ -87,7 +87,7 @@ pub(crate) fn free(addr: u64, size: usize) {
     };
 
     for page in pages {
-        if let Ok((_frame, mapping)) = mapper.unmap(page) {
+        if let Ok((_, mapping)) = mapper.unmap(page) {
             mapping.flush();
         } else {
             recoverable!("Unable to unmap {:?}", page);
