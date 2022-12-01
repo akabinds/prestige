@@ -79,7 +79,7 @@ pub(super) fn dispatch(id: usize, arg1: usize, arg2: usize, arg3: usize, arg4: u
 }
 
 pub(super) fn read(handle: usize, buf: &mut [u8]) -> Option<usize> {
-    let res = unsafe { syscall!(READ, handle, buf.as_ptr(), buf.len()) } as isize;
+    let res = syscall3(READ, handle, buf.as_ptr() as usize, buf.len()) as isize;
 
     if res >= 0 {
         Some(res as usize)
@@ -89,7 +89,7 @@ pub(super) fn read(handle: usize, buf: &mut [u8]) -> Option<usize> {
 }
 
 pub(super) fn write(handle: usize, buf: &[u8]) -> Option<usize> {
-    let res = unsafe { syscall!(WRITE, handle, buf.as_ptr(), buf.len()) } as isize;
+    let res = syscall3(WRITE, handle, buf.as_ptr() as usize, buf.len()) as isize;
 
     if res >= 0 {
         Some(res as usize)
@@ -99,7 +99,7 @@ pub(super) fn write(handle: usize, buf: &[u8]) -> Option<usize> {
 }
 
 pub(super) fn open(path: &str, flags: usize) -> Option<usize> {
-    let res = unsafe { syscall!(OPEN, path.as_ptr(), path.len(), flags) } as isize;
+    let res = syscall3(OPEN, path.as_ptr() as usize, path.len(), flags) as isize;
 
     if res >= 0 {
         Some(res as usize)
@@ -109,11 +109,11 @@ pub(super) fn open(path: &str, flags: usize) -> Option<usize> {
 }
 
 pub fn close(handle: usize) {
-    unsafe { syscall!(CLOSE, handle) };
+    syscall1(CLOSE, handle);
 }
 
 pub(super) fn dup(old_handle: usize, new_handle: usize) -> Option<usize> {
-    let res = unsafe { syscall!(DUP, old_handle, new_handle) } as isize;
+    let res = syscall2(DUP, old_handle, new_handle) as isize;
 
     if res >= 0 {
         Some(res as usize)
@@ -123,7 +123,7 @@ pub(super) fn dup(old_handle: usize, new_handle: usize) -> Option<usize> {
 }
 
 pub(super) fn seek(handle: usize, offset: usize, flags: usize) -> Option<usize> {
-    let res = unsafe { syscall!(SEEK, handle, offset, flags) } as isize;
+    let res = syscall3(SEEK, handle, offset, flags) as isize;
 
     if res >= 0 {
         Some(res as usize)
@@ -157,90 +157,42 @@ pub(super) fn tkill(tid: usize, signal: usize) -> Option<usize> {
 }
 
 pub(super) fn exit(code: ExitCode) {
-    unsafe { syscall!(EXIT, code as usize) };
+    syscall1(EXIT, code as usize);
 }
 
 pub(super) fn exit_group(code: ExitCode) {
-    unsafe { syscall!(EXIT_GROUP, code as usize) };
+    syscall1(EXIT_GROUP, code as usize);
 }
 
 pub(super) fn reboot() {
-    unsafe { syscall!(REBOOT) };
+    syscall0(REBOOT);
 }
 
 pub(super) fn info(path: &str) {
     todo!();
 }
 
-#[doc(hidden)]
-unsafe fn syscall0(n: usize) -> usize {
-    let res: usize;
-    asm!(
-        "int 0x80",
-        in("rax") n,
-        lateout("rax") res
-    );
-    res
+macro syscall_fns($(fn $name:ident($id:ident $(,$arg1:ident $(,$arg2:ident $(,$arg3:ident $(,$arg4:ident)?)?)?)?) -> usize;)*) {
+    $(
+        fn $name(mut $id: usize, $($arg1: usize, $($arg2: usize, $($arg3: usize, $($arg4: usize)?)?)?)?) -> usize {
+            unsafe {
+                asm!(
+                    "int 0x80",
+                    inout("rax") $id,
+                    $(in("rdi") $arg1, $(in("rsi") $arg2, $(in("rdx") $arg3, $(in("r8") $arg4,)?)?)?)?
+                    options(nostack),
+                );
+
+                $id
+            }
+        }
+    )+
 }
 
-#[doc(hidden)]
-unsafe fn syscall1(n: usize, arg1: usize) -> usize {
-    let res: usize;
-    asm!(
-        "int 0x80",
-        in("rax") n,
-        in("rdi") arg1,
-        lateout("rax") res
-    );
-    res
-}
-
-#[doc(hidden)]
-unsafe fn syscall2(n: usize, arg1: usize, arg2: usize) -> usize {
-    let res: usize;
-    asm!(
-        "int 0x80",
-        in("rax") n,
-        in("rdi") arg1,
-        in("rsi") arg2,
-        lateout("rax") res
-    );
-    res
-}
-
-#[doc(hidden)]
-unsafe fn syscall3(n: usize, arg1: usize, arg2: usize, arg3: usize) -> usize {
-    let res: usize;
-    asm!(
-        "int 0x80",
-        in("rax") n,
-        in("rdi") arg1,
-        in("rsi") arg2,
-        in("rdx") arg3,
-        lateout("rax") res
-    );
-    res
-}
-
-#[doc(hidden)]
-unsafe fn syscall4(n: usize, arg1: usize, arg2: usize, arg3: usize, arg4: usize) -> usize {
-    let res: usize;
-    asm!(
-        "int 0x80",
-        in("rax") n,
-        in("rdi") arg1,
-        in("rsi") arg2,
-        in("rdx") arg3,
-        in("r8") arg4,
-        lateout("rax") res
-    );
-    res
-}
-
-macro syscall {
-    ($n:expr) => (syscall0($n)),
-    ($n:expr, $a1:expr) => (syscall1($n, $a1 as usize)),
-    ($n:expr, $a1:expr, $a2:expr) => (syscall2($n, $a1 as usize, $a2 as usize)),
-    ($n:expr, $a1:expr, $a2:expr, $a3:expr) => (syscall3($n, $a1 as usize, $a2 as usize, $a3 as usize)),
-    ($n:expr, $a1:expr, $a2:expr, $a3:expr, $a4:expr) => (syscall4($n, $a1 as usize, $a2 as usize, $a3 as usize, $a4 as usize))
-}
+syscall_fns!(
+    fn syscall0(id) -> usize;
+    fn syscall1(id, arg1) -> usize;
+    fn syscall2(id, arg1, arg2) -> usize;
+    fn syscall3(id, arg1, arg2, arg3) -> usize;
+    fn syscall4(id, arg1, arg2, arg3, arg4) -> usize;
+);
