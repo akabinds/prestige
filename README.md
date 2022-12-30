@@ -1,5 +1,5 @@
 # Prestige
-Prestige is an operating system written for fun and educational purposes in Rust. It targets the x86-64 architecture and can run on common emulators like QEMU. 
+Prestige is an operating system written for fun and educational purposes in Rust. It targets the x86-64 architecture (so far) and can run on common emulators like QEMU. 
 
 The Prestige project began from an interest to develop an operating system. The development of Prestige is attributed to the second edition of [Writing an OS in Rust](https://os.phil-opp.com/) by Philipp Oppermann, reading the [OSDev wiki](https://wiki.osdev.org/Main_Page), and by inspecting the source code of other open source operating systems and kernels.
 

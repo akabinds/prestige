@@ -1,6 +1,6 @@
-use alloc::{boxed::Box, string::String};
-
 use super::resource::Resource;
+use alloc::{boxed::Box, string::String};
+use bitflags::bitflags;
 
 pub(crate) trait FileIO {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()>;
@@ -18,6 +18,10 @@ pub(crate) struct File {
 
 impl File {
     pub(crate) fn create(path: &str) -> Self {
+        todo!();
+    }
+
+    pub(crate) fn open(path: &str) -> Option<Self> {
         todo!();
     }
 }
@@ -41,6 +45,10 @@ pub(crate) struct Directory {
 }
 
 impl Directory {
+    pub(crate) fn open(path: &str) -> Option<Self> {
+        todo!();
+    }
+
     pub(crate) fn is_root(&self) -> bool {
         self.parent.is_none()
     }
@@ -73,7 +81,7 @@ impl FileIO for Directory {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum FileType {
+pub(crate) enum FileKind {
     Dir = 0,
     File = 1,
 }
@@ -83,55 +91,44 @@ pub(crate) struct DirEntry {
     dir: Directory,
     name: String,
     addr: u32,
-    kind: FileType,
+    kind: FileKind,
 }
 
-#[repr(u8)]
-#[derive(Copy, Clone)]
-pub(crate) enum OpenFlag {
-    Read = 1,
-    Write = 2,
-    Append = 3,
-    Create = 4,
-    Truncate = 5,
-    ReadWrite = 6,
-    Dir = 7,
-    Device = 8,
-}
+bitflags! {
+    pub(crate) struct OpenFlag: u8 {
+        const READ = 1;
+        const WRITE = 1 << 1;
+        const READWRITE = Self::READ.bits | Self::WRITE.bits;
+        const APPEND = 1 << 2;
+        const CREATE = 1 << 3;
+        const TRUNCATE = 1 << 4;
+        const DIR = 1 << 5;
+        const DEVICE = 1 << 6;
+    }
 
-impl OpenFlag {
-    fn is_set(&self, flags: usize) -> bool {
-        flags & (*self as usize) != 0
+    pub(crate) struct SeekFlag: u8 {
+        const START = 1;
+        const CURRENT = 1 << 1;
+        const END = 1 << 2;
     }
 }
 
 pub(crate) fn open(path: &str, flags: usize) -> Option<Resource> {
-    if OpenFlag::Dir.is_set(flags) {
+    let open_flag = OpenFlag::from_bits(flags as u8)?;
+
+    if open_flag.contains(OpenFlag::DIR) {
         todo!();
-    } else if OpenFlag::Device.is_set(flags) {
+    } else if open_flag.contains(OpenFlag::DEVICE) {
         todo!();
     } else {
-        if !(OpenFlag::Read.is_set(flags)
-            || OpenFlag::Write.is_set(flags)
-            || OpenFlag::ReadWrite.is_set(flags))
-        {
-            None
-        } else {
-            todo!();
+        // we are opening a file
+
+        if !(open_flag.contains(OpenFlag::READ) || open_flag.contains(OpenFlag::WRITE)) {
+            return None;
         }
-    }
-}
 
-#[repr(u8)]
-#[derive(Copy, Clone)]
-pub(crate) enum SeekFlag {
-    Start = 1,
-    Current = 2,
-    End = 3,
-}
+        let mut file = File::open(path);
 
-impl SeekFlag {
-    fn is_set(&self, flags: usize) -> bool {
-        flags & (*self as usize) != 0
+        todo!();
     }
 }

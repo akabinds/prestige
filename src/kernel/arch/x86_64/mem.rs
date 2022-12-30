@@ -8,7 +8,9 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use x86_64::{
     instructions::interrupts as x86_64cint, // x86_64 crate interrupts
     registers::control::Cr3,
-    structures::paging::{FrameAllocator, OffsetPageTable, PageTable, PhysFrame, Size4KiB},
+    structures::paging::{
+        FrameAllocator, FrameDeallocator, OffsetPageTable, PageTable, PhysFrame, Size4KiB,
+    },
     PhysAddr,
     VirtAddr,
 };

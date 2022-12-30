@@ -19,7 +19,6 @@ pub(super) fn init_heap(
     frame_alloc: &mut impl FrameAllocator<Size4KiB>,
 ) -> Result<(), MapToError<Size4KiB>> {
     let heap_start = VirtAddr::new(HEAP_START as u64);
-    process::init((HEAP_START + HEAP_SIZE) as u64);
 
     let page_range = {
         let heap_end = heap_start + HEAP_SIZE - 1u64;

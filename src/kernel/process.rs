@@ -1,25 +1,20 @@
+#[cfg(target_arch = "x86_64")]
+use super::arch::mem::allocator;
+
 use super::{
-    gdt::GDT,
     io::{console::Console, recoverable},
-    mem::allocator,
     resource::{Device, Resource},
+    scheduler::{TaskId, TaskPriority, TaskStatus},
 };
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
     string::String,
 };
-use core::{
-    arch::asm,
-    sync::atomic::{AtomicU64, Ordering},
-};
+use bitflags::bitflags;
+use core::sync::atomic::{AtomicU64, Ordering};
 use lazy_static::lazy_static;
 use spin::RwLock;
-use x86_64::{structures::idt::InterruptStackFrameValue, VirtAddr};
-
-pub(crate) fn init(addr: u64) {
-    CODE_ADDR.store(addr, Ordering::SeqCst);
-}
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -57,33 +52,31 @@ impl From<usize> for ExitCode {
     }
 }
 
-#[repr(align(8), C)]
-#[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct Registers {
-    pub(crate) r11: usize,
-    pub(crate) r10: usize,
-    pub(crate) r9: usize,
-    pub(crate) r8: usize,
-    pub(crate) rdi: usize,
-    pub(crate) rsi: usize,
-    pub(crate) rdx: usize,
-    pub(crate) rcx: usize,
-    pub(crate) rax: usize,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct ThreadId(u64);
+
+impl ThreadId {
+    fn new() -> Self {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        ThreadId(COUNTER.fetch_add(1, Ordering::Relaxed))
+    }
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct Thread {
-    id: usize,
-    proc: usize, // PID of the process containing this thread
-                 // WIP
+    id: ThreadId,
+    proc: ProcessId, // PID of the process containing this thread
 }
 
 impl Thread {
-    pub(crate) fn new(id: usize, proc: usize) -> Self {
-        Self { id, proc }
+    pub(crate) fn new(proc: ProcessId) -> Self {
+        Self {
+            id: ThreadId::new(),
+            proc,
+        }
     }
 
-    pub(crate) fn id(&self) -> usize {
+    pub(crate) const fn id(&self) -> ThreadId {
         self.id
     }
 }
@@ -103,38 +96,137 @@ static CODE_ADDR: AtomicU64 = AtomicU64::new(0);
 
 lazy_static! {
     pub(crate) static ref PROCESSES: RwLock<[Box<Process>; MAX_PROCESSES]> =
-        RwLock::new([(); MAX_PROCESSES].map(|_| Box::new(Process::new(0, "/", None))));
+        RwLock::new([(); MAX_PROCESSES].map(|_| Box::new(Process::new("/"))));
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct ProcessId(u64);
+
+impl ProcessId {
+    fn new() -> Self {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        ProcessId(COUNTER.fetch_add(1, Ordering::Relaxed))
+    }
+
+    pub(crate) const fn inner(&self) -> u64 {
+        self.0
+    }
+}
+
+bitflags! {
+    /// The first 15 bits represent the privileges for everybody outside the current process.
+    /// The next 15 bits represent the privileges for everybody in the same group as the current process.
+    /// The final 15 bits represent the privileges for the owner of the current process
+    pub(crate) struct ProcessPrivileges: u64 {
+        const EVERYONE_READFILE = 1;
+        const EVERYONE_WRITEFILE = 1 << 1;
+        const EVERYONE_EXECFILE = 1 << 2;
+        const EVERYONE_READDIR = 1 << 3;
+        const EVERYONE_WRITEDIR = 1 << 4; // grants permission to modify directory entries
+        const EVERYONE_EXECDIR = 1 << 5; // grants permission to access directory entries
+        const EVERYONE_READBLOCK = 1 << 6;
+        const EVERYONE_WRITEBLOCK = 1 << 7;
+        const EVERYONE_EXECBLOCK = 1 << 8;
+        const EVERYONE_READLINK = 1 << 9;
+        const EVERYONE_WRITELINK = 1 << 10;
+        const EVERYONE_EXECLINK = 1 << 11;
+        const EVERYONE_READSOCKET = 1 << 12;
+        const EVERYONE_WRITESOCKET = 1 << 13;
+        const EVERYONE_EXECSOCKET = 1 << 14;
+
+        const GROUP_READFILE = 1 << 15;
+        const GROUP_WRITEFILE = 1 << 16;
+        const GROUP_EXECFILE = 1 << 17;
+        const GROUP_READDIR = 1 << 18;
+        const GROUP_WRITEDIR = 1 << 19; // grants permission to modify directory entries
+        const GROUP_EXECDIR = 1 << 20; // grants permission to access directory entries
+        const GROUP_READBLOCK = 1 << 21;
+        const GROUP_WRITEBLOCK = 1 << 22;
+        const GROUP_EXECBLOCK = 1 << 23;
+        const GROUP_READLINK = 1 << 24;
+        const GROUP_WRITELINK = 1 << 25;
+        const GROUP_EXECLINK = 1 << 26;
+        const GROUP_READSOCKET = 1 << 27;
+        const GROUP_WRITESOCKET = 1 << 28;
+        const GROUP_EXECSOCKET = 1 << 29;
+
+        const OWNER_READFILE = 1 << 30;
+        const OWNER_WRITEFILE = 1 << 31;
+        const OWNER_EXECFILE = 1 << 32;
+        const OWNER_READDIR = 1 << 33;
+        const OWNER_WRITEDIR = 1 << 34; // grants permission to modify directory entries
+        const OWNER_EXECDIR = 1 << 35; // grants permission to access directory entries
+        const OWNER_READBLOCK = 1 << 36;
+        const OWNER_WRITEBLOCK = 1 << 37;
+        const OWNER_EXECBLOCK = 1 << 38;
+        const OWNER_READLINK = 1 << 39;
+        const OWNER_WRITELINK = 1 << 40;
+        const OWNER_EXECLINK = 1 << 41;
+        const OWNER_READSOCKET = 1 << 42;
+        const OWNER_WRITESOCKET = 1 << 43;
+        const OWNER_EXECSOCKET = 1 << 44;
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct ProcessUserId(u64);
+
+impl ProcessUserId {
+    fn new() -> Self {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        ProcessUserId(COUNTER.fetch_add(1, Ordering::Relaxed))
+    }
+
+    pub(crate) const fn inner(&self) -> u64 {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct ProcessGroupId(u64);
+
+impl ProcessGroupId {
+    fn new() -> Self {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        ProcessGroupId(COUNTER.fetch_add(1, Ordering::Relaxed))
+    }
+
+    pub(crate) const fn inner(&self) -> u64 {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ProcessSchedulingInfo {
+    task_id: TaskId,
+    task_priority: TaskPriority,
+    task_status: TaskStatus,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct Process {
-    id: usize,
-    code_addr: u64,
-    stack_addr: u64,
-    entry_point_addr: u64,
-    stack_frame: InterruptStackFrameValue,
-    registers: Registers,
-    parent: Option<usize>,     // PID of the parent process
-    children: BTreeSet<usize>, // PID's of the child processes
+    id: ProcessId,
+    parent: Option<ProcessId>,     // PID of the parent process
+    children: BTreeSet<ProcessId>, // PID's of the child processes
+    privileges: ProcessPrivileges,
+    // sched: ProcessSchedulingInfo,
     dir: String,
-    user: Option<String>,
+    user: ProcessUserId,
+    group: ProcessGroupId,
     env: BTreeMap<String, String>,
     threads: [Option<Box<Thread>>; MAX_THREADS],
     resource_handles: [Option<Box<Resource>>; MAX_RESOURCE_HANDLES],
+    code_addr: u64,
+    stack_addr: u64,
+    entry_point_addr: u64,
 }
 
 impl Process {
-    pub(crate) fn new(id: usize, dir: &str, user: Option<&str>) -> Self {
-        let stack_frame = InterruptStackFrameValue {
-            instruction_pointer: VirtAddr::new(0),
-            code_segment: 0,
-            cpu_flags: 0,
-            stack_pointer: VirtAddr::new(0),
-            stack_segment: 0,
-        };
+    pub(crate) fn new(dir: &str) -> Self {
+        let id = ProcessId::new();
 
         let mut threads = [(); MAX_THREADS].map(|_| None);
-        threads[0] = Some(Box::new(Thread::new(0, id)));
+        threads[0] = Some(Box::new(Thread::new(id))); // main thread
 
         let mut resource_handles = [(); MAX_RESOURCE_HANDLES].map(|_| None);
 
@@ -145,69 +237,28 @@ impl Process {
 
         Self {
             id,
-            code_addr: 0,
-            stack_addr: 0,
-            entry_point_addr: 0,
-            stack_frame,
-            registers: Registers::default(),
             parent: None,
             children: BTreeSet::new(),
+            privileges: !ProcessPrivileges::from_bits(0b111111111111111111111111111111).unwrap(),
             dir: dir.into(),
-            user: user.map(String::from),
+            user: ProcessUserId::new(),
+            group: ProcessGroupId::new(),
             env: BTreeMap::new(),
             threads,
             resource_handles,
+            code_addr: 0,
+            stack_addr: 0,
+            entry_point_addr: 0,
         }
     }
 
-    pub(crate) fn spawn(bin: &[u8], args_ptr: usize, args_len: usize) -> Result<(), ExitCode> {
-        let Ok(id) = Self::init(bin) else {
-            return Err(ExitCode::ExecFault);
-        };
-
-        let proc = PROCESSES.read()[id].clone();
-        proc.exec(args_ptr, args_len);
-        Ok(())
-    }
-
-    fn init(bin: &[u8]) -> Result<usize, ()> {
-        let proc_size = MAX_PROC_SIZE as u64;
-        let code_addr = CODE_ADDR.fetch_add(proc_size, Ordering::SeqCst);
-        let stack_addr = code_addr + proc_size;
-
-        todo!();
-    }
-
-    pub(crate) fn fork(&mut self) -> Result<Self, ExitCode> {
+    pub(crate) fn fork(&mut self) -> Self {
         let mut child = self.clone();
-        child.set_id(self.id() + 1);
         child.set_parent(self.id());
+        child.children.clear();
         self.children.insert(child.id);
 
-        Ok(child)
-    }
-
-    fn exec(&self, args_ptr: usize, args_len: usize) {
-        let heap_addr = self.code_addr + (self.stack_addr - self.code_addr) / 2;
-        allocator::alloc(heap_addr, 1).expect("Unable to allocate");
-
-        unsafe {
-            asm!(
-                "cli",
-                "push {:r}",
-                "push {:r}",
-                "push 0x200",
-                "push {:r}",
-                "push {:r}",
-                "iretq",
-                in(reg) GDT.1.user_data.0,
-                in(reg) self.stack_addr,
-                in(reg) GDT.1.user_code.0,
-                in(reg) self.code_addr + self.entry_point_addr,
-                in("rdi") args_ptr,
-                in("rsi") args_len,
-            )
-        }
+        child
     }
 
     pub(crate) fn exit(self, code: u8) -> ExitCode {
@@ -216,19 +267,16 @@ impl Process {
         ExitCode::from(code as usize)
     }
 
-    pub(crate) fn id(&self) -> usize {
+    pub(crate) const fn id(&self) -> ProcessId {
         self.id
     }
 
-    pub(crate) fn set_id(&mut self, id: usize) {
-        self.id = id;
-    }
-
     pub(crate) fn parent(&self) -> Option<Box<Self>> {
-        self.parent.map(|pid| PROCESSES.read()[pid].clone())
+        self.parent
+            .map(|pid| PROCESSES.read()[pid.0 as usize].clone())
     }
 
-    pub(crate) fn set_parent(&mut self, pid: usize) {
+    pub(crate) fn set_parent(&mut self, pid: ProcessId) {
         self.parent = Some(pid);
     }
 
@@ -276,31 +324,7 @@ impl Process {
         self.dir = dir.into();
     }
 
-    pub(crate) fn user(&self) -> Option<String> {
-        self.user.clone()
-    }
-
-    pub(crate) fn set_user(&mut self, user: &str) {
-        self.user = Some(user.into());
-    }
-
-    pub(crate) fn stack_frame(&self) -> InterruptStackFrameValue {
-        self.stack_frame
-    }
-
-    pub(crate) fn set_stack_frame(&mut self, sf: InterruptStackFrameValue) {
-        self.stack_frame = sf;
-    }
-
-    pub(crate) fn registers(&self) -> Registers {
-        self.registers
-    }
-
-    pub(crate) fn set_registers(&mut self, registers: Registers) {
-        self.registers = registers;
-    }
-
-    pub(crate) fn code_addr(&self) -> u64 {
+    pub(crate) const fn code_addr(&self) -> u64 {
         self.code_addr
     }
 

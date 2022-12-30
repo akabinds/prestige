@@ -2,10 +2,9 @@ mod service;
 
 use super::{
     fs::{self, FileIO},
-    io::kprint,
     process::{self, ExitCode, Process, Thread},
 };
-use core::arch::asm;
+use core::{arch::asm, slice, str};
 
 const READ: usize = 0x0;
 const WRITE: usize = 0x1;
@@ -24,43 +23,51 @@ const EXIT_GROUP: usize = 0xD;
 const REBOOT: usize = 0xE;
 const INFO: usize = 0xF;
 
-pub(super) fn dispatch(id: usize, arg1: usize, arg2: usize, arg3: usize, arg4: usize) -> usize {
+#[no_mangle]
+extern "C" fn dispatch(
+    id: usize,
+    arg0: usize,
+    arg1: usize,
+    arg2: usize,
+    arg3: usize,
+    arg4: usize,
+    arg5: usize,
+) -> usize {
     let calling_proc = process::current_process();
 
     match id {
         READ => {
-            let handle = arg1;
-            let ptr = calling_proc.ptr_from_addr(arg2 as u64);
-            let len = arg3;
-            let buf = unsafe { core::slice::from_raw_parts_mut(ptr, len) };
+            let handle = arg0;
+            let ptr = calling_proc.ptr_from_addr(arg1 as u64);
+            let len = arg2;
+            let buf = unsafe { slice::from_raw_parts_mut(ptr, len) };
 
             service::read(handle, buf) as usize
         }
         WRITE => {
-            let handle = arg1;
-            let ptr = calling_proc.ptr_from_addr(arg2 as u64);
-            let len = arg3;
-            let buf = unsafe { core::slice::from_raw_parts(ptr, len) };
+            let handle = arg0;
+            let ptr = calling_proc.ptr_from_addr(arg1 as u64);
+            let len = arg2;
+            let buf = unsafe { slice::from_raw_parts(ptr, len) };
 
             service::write(handle, buf) as usize
         }
         OPEN => {
-            let ptr = calling_proc.ptr_from_addr(arg1 as u64);
-            let len = arg2;
-            let flags = arg3;
-            let path =
-                unsafe { core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr, len)) };
+            let ptr = calling_proc.ptr_from_addr(arg0 as u64);
+            let len = arg1;
+            let flags = arg2;
+            let path = unsafe { str::from_utf8_unchecked(slice::from_raw_parts(ptr, len)) };
 
             service::open(path, flags) as usize
         }
         CLOSE => {
-            let handle = arg1;
+            let handle = arg0;
             service::close(handle);
             0
         }
         DUP => {
-            let old_handle = arg1;
-            let new_handle = arg2;
+            let old_handle = arg0;
+            let new_handle = arg1;
 
             service::dup(old_handle, new_handle) as usize
         }
@@ -71,7 +78,7 @@ pub(super) fn dispatch(id: usize, arg1: usize, arg2: usize, arg3: usize, arg4: u
         THREAD_CLONE => todo!(),
         PROC_KILL => todo!(),
         THREAD_KILL => todo!(),
-        EXIT => service::exit(ExitCode::from(arg1)) as usize,
+        EXIT => service::exit(ExitCode::from(arg0)) as usize,
         REBOOT => service::reboot(),
         INFO => todo!(),
         _ => unimplemented!("Invalid syscall ID"),
@@ -172,27 +179,35 @@ pub(super) fn info(path: &str) {
     todo!();
 }
 
-macro syscall_fns($(fn $name:ident($id:ident $(,$arg1:ident $(,$arg2:ident $(,$arg3:ident $(,$arg4:ident)?)?)?)?) -> usize;)*) {
+macro syscall_fns($(fn $name:ident($id:ident $(,$arg0:ident $(,$arg1:ident $(,$arg2:ident $(,$arg3:ident $(,$arg4:ident $(,$arg5:ident)?)?)?)?)?)?) -> usize;)*) {
     $(
-        fn $name(mut $id: usize, $($arg1: usize, $($arg2: usize, $($arg3: usize, $($arg4: usize)?)?)?)?) -> usize {
+        fn $name(mut $id: usize, $($arg0: usize, $($arg1: usize, $($arg2: usize, $($arg3: usize, $($arg4: usize, $($arg5: usize)?)?)?)?)?)?) -> usize {
+            #[cfg(target_arch = "x86_64")]
             unsafe {
                 asm!(
-                    "int 0x80",
+                    "syscall",
                     inout("rax") $id,
-                    $(in("rdi") $arg1, $(in("rsi") $arg2, $(in("rdx") $arg3, $(in("r8") $arg4,)?)?)?)?
+                    $(in("rdi") $arg0, $(in("rsi") $arg1, $(in("rdx") $arg2, $(in("r10") $arg3, $(in("r8") $arg4, $(in("r9") $arg5,)?)?)?)?)?)?
+                    out("rcx") _,
+                    out("r11") _,
                     options(nostack),
                 );
 
                 $id
             }
+
+            #[cfg(not(target_arch = "x86_64"))]
+            compile_error!("The only architecture supported at the moment is x86_64");
         }
     )+
 }
 
 syscall_fns!(
     fn syscall0(id) -> usize;
-    fn syscall1(id, arg1) -> usize;
-    fn syscall2(id, arg1, arg2) -> usize;
-    fn syscall3(id, arg1, arg2, arg3) -> usize;
-    fn syscall4(id, arg1, arg2, arg3, arg4) -> usize;
+    fn syscall1(id, arg0) -> usize;
+    fn syscall2(id, arg0, arg1) -> usize;
+    fn syscall3(id, arg0, arg1, arg2) -> usize;
+    fn syscall4(id, arg0, arg1, arg2, arg3) -> usize;
+    fn syscall5(id, arg0, arg1, arg2, arg3, arg4) -> usize;
+    fn syscall6(id, arg0, arg1, arg2, arg3, arg4, arg5) -> usize;
 );

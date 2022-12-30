@@ -1,5 +1,7 @@
-use super::print;
-use crate::kernel::{fs::FileIO, interrupts::halt, io::kprint};
+#[cfg(target_arch = "x86_64")]
+use crate::kernel::arch::interrupts::halt;
+
+use crate::kernel::{fs::FileIO, io::kprint};
 use alloc::string::{String, ToString};
 use core::{
     fmt,
@@ -86,12 +88,12 @@ impl fmt::Display for Style {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(fg) = self.fg {
             if let Some(bg) = self.bg {
-                write!(f, "\x1b[{};{}m", fg, bg)
+                write!(f, "\x1b[{fg};{bg}m")
             } else {
-                write!(f, "\x1b[{}m", fg)
+                write!(f, "\x1b[{fg}m")
             }
         } else if let Some(bg) = self.bg {
-            write!(f, "\x1b[{}m", bg)
+            write!(f, "\x1b[{bg}m")
         } else {
             write!(f, "\x1b[0m")
         }
@@ -251,7 +253,7 @@ pub(crate) fn handle_key_inp(key: char) {
 }
 
 #[doc(hidden)]
-pub(super) fn console_print(args: fmt::Arguments) {
+pub fn console_print(args: fmt::Arguments) {
     #[cfg(feature = "vga")]
     {
         super::vga::vga_print(args);

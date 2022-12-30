@@ -69,12 +69,9 @@ pub(super) fn tspawn() {
 
 pub(super) fn pfork() -> isize {
     let mut calling_proc = process::current_process();
+    let child = calling_proc.fork();
 
-    let Ok(child) = calling_proc.fork() else {
-        return -1;
-    };
-
-    child.id() as isize
+    child.id().inner() as isize
 }
 
 pub(super) fn tclone() -> isize {

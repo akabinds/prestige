@@ -7,7 +7,6 @@ use super::syscall;
 use alloc::{
     format,
     string::{String, ToString},
-    vec::Vec,
 };
 use console::Style;
 use lazy_static::lazy_static;
@@ -85,7 +84,7 @@ pub fn stderr() -> MutexGuard<'static, Stderr> {
     STDERR.lock()
 }
 
-pub(super) macro kprint($($arg:tt)*) {
+pub macro kprint($($arg:tt)*) {
     console::console_print(format_args!($($arg)*))
 }
 
