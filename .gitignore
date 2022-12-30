@@ -1,2 +1,5 @@
 /target
-disk.img
+limine
+*.img
+*.iso
+prestige_macros/Cargo.lock

@@ -1,20 +1,19 @@
-mod fs;
-pub(crate) mod gdt;
-pub(crate) mod interrupts;
+pub mod arch;
+pub mod fs;
 pub mod io;
-pub(crate) mod mem;
-pub mod multitask;
-mod net;
-mod process;
-mod resource;
-mod syscall;
+pub mod mem;
+pub mod net;
+pub mod syscall;
 
 trait Initialize {
     fn init();
 }
 
-pub fn hlt_loop() -> ! {
-    loop {
-        x86_64::instructions::hlt();
+pub fn kinit() {
+    #[cfg(target_arch = "x86_64")]
+    {
+        arch::gdt::init();
     }
+
+    io::serial::init();
 }

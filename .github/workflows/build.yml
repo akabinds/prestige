@@ -1,0 +1,51 @@
+name: Prestige
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        # since `rust-toolchain.toml` is present, the action will use the toolchain and components specified in it
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y nasm
+        python3 -m pip install typer
+    - name: Build the OS
+      run: ./prestige.py build --no-qemu
+    - name: Store ISO image as an artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: Prestige
+        path: ./limine/prestige.iso
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        # since `rust-toolchain.toml` is present, the action will use the toolchain and components specified in it
+        - name: Install dependencies
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y nasm
+        python3 -m pip install typer
+    - name: Run tests
+      run: RUST_BACKTRACE=1 ./prestige.py test
