@@ -1,14 +1,14 @@
-pub(crate) mod serial;
+mod serial;
 mod terminal;
 
-use core::fmt;
-use limine::LimineTerminalRequest;
+use core::fmt::{self, Write};
+use limine::{LimineTerminalRequest, LimineTerminalResponse};
 use spin::Mutex;
 
 static TERMINAL_REQUEST: LimineTerminalRequest = LimineTerminalRequest::new(0);
 
 struct Writer {
-    terminals: Option<&'static limine::LimineTerminalResponse>,
+    terminals: Option<&'static LimineTerminalResponse>,
 }
 
 unsafe impl Send for Writer {}
@@ -39,10 +39,10 @@ impl fmt::Write for Writer {
 static WRITER: Mutex<Writer> = Mutex::new(Writer { terminals: None });
 
 pub fn _print(args: fmt::Arguments) {
-    // NOTE: Locking needs to happen around `print_fmt`, not `print_str`, as the former
-    // will call the latter potentially multiple times per invocation.
-    let mut writer = WRITER.lock();
-    fmt::Write::write_fmt(&mut *writer, args).ok();
+    WRITER
+        .lock()
+        .write_fmt(args)
+        .expect("Failed to write to terminal");
 }
 
 pub macro print($($t:tt)*) {

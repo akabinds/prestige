@@ -3,10 +3,16 @@
 #![feature(decl_macro, alloc_error_handler, custom_test_frameworks)]
 #![test_runner(tests::test_runner)]
 #![reexport_test_harness_main = "test_main"]
-#![allow(dead_code, non_upper_case_globals, unused_imports)]
+#![allow(
+    dead_code,
+    non_upper_case_globals,
+    unused_imports,
+    unused_variables,
+    unused_mut
+)]
 #![cfg_attr(target_arch = "x86_64", feature(abi_x86_interrupt))]
 
-// extern crate alloc;
+extern crate alloc;
 
 #[macro_use]
 extern crate prestige_macros;
@@ -21,24 +27,26 @@ use kernel::arch;
 
 use core::panic::PanicInfo;
 use kernel::io::println;
-use limine::{LimineEntryPointRequest, LiminePtr};
-
-static _ENTRY_POINT: LimineEntryPointRequest =
-    LimineEntryPointRequest::new(0).entry(LiminePtr::new(prestige_main));
 
 #[no_mangle]
 fn prestige_main() -> ! {
+    arch::init();
+
     println!("Hello, World!");
 
     #[cfg(test)]
     test_main();
 
-    arch::hlt_loop();
+    arch::interrupts::hlt_loop();
+}
+
+fn kernel_main_thread() {
+    todo!();
 }
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
 
-    arch::hlt_loop();
+    arch::interrupts::hlt_loop();
 }

@@ -1,29 +1,18 @@
-use limine::{LimineMemmapEntry, LimineMemmapRequest, LimineMemoryMapEntryType, NonNullPtr};
-use x86_64::{structures::paging::PhysFrame, VirtAddr, PhysAddr};
+use limine::{LimineMemmapEntry, NonNullPtr};
+use linked_list_allocator::LockedHeap;
+use x86_64::VirtAddr;
 
-static mut PHYSICAL_MEMORY_OFFSET: VirtAddr = VirtAddr::zero();
-static MEMMAP: LimineMemmapRequest = LimineMemmapRequest::new(0);
+mod frame_alloc;
+mod paging;
 
-struct BootInfoFrameAllocator {
-    mem_map: &'static [NonNullPtr<LimineMemmapEntry>],
-}
+use frame_alloc::BootInfoFrameAllocator;
 
-impl BootInfoFrameAllocator {
-    unsafe fn init(mem_map: &'static [NonNullPtr<LimineMemmapEntry>]) -> Self {
-        Self { mem_map }
-    }
+#[global_allocator]
+pub static PRESTIGE_ALLOC: LockedHeap = LockedHeap::empty();
 
-    // fn usable_frames() -> impl Iterator<Item = PhysFrame> {
-    //     let regions = MEMMAP
-    //         .get_response()
-    //         .get()
-    //         .expect("Unable to get response")
-    //         .memmap()
-    //         .iter();
-    //     let usable_regions = regions.filter(|r| r.typ == LimineMemoryMapEntryType::Usable);
-    //     let addr_ranges = usable_regions.map(|r| ());
-    //     let frame_addrs = addr_ranges.flat_map(|r| r.step_by(4096));
+pub static mut PHYSICAL_MEMORY_OFFSET: VirtAddr = VirtAddr::zero();
 
-    //     frame_addrs.map(|addr| PhysFrame::containing_address(PhysAddr::new(addr)))
-    // }
+pub fn init(mem_map: &'static mut [NonNullPtr<LimineMemmapEntry>]) {
+    let mut mapper = unsafe { paging::init() };
+    let mut frame_alloc = unsafe { BootInfoFrameAllocator::init(mem_map) };
 }

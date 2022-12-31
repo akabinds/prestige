@@ -6,16 +6,16 @@ use uart_16550::SerialPort;
 #[cfg(target_arch = "x86_64")]
 use x86_64::instructions::interrupts as x86_64cint; // x86_64 crate interrupts
 
-pub(crate) fn init() {
+pub fn init() {
     SERIAL.lock().init();
 }
 
 lazy_static! {
-    pub(crate) static ref SERIAL: Mutex<Serial> = Mutex::new(Serial::new(0x3F8));
+    pub static ref SERIAL: Mutex<Serial> = Mutex::new(Serial::new(0x3F8));
 }
 
 /// Wrapper around a serial port
-pub(crate) struct Serial {
+pub struct Serial {
     port: SerialPort,
 }
 
@@ -30,11 +30,11 @@ impl Serial {
         self.port.init();
     }
 
-    pub(crate) fn read_byte(&mut self) -> u8 {
+    pub fn read_byte(&mut self) -> u8 {
         self.port.receive()
     }
 
-    fn write_byte(&mut self, byte: u8) {
+    pub fn write_byte(&mut self, byte: u8) {
         self.port.send(byte);
     }
 }
@@ -51,16 +51,8 @@ impl fmt::Write for Serial {
 
 #[doc(hidden)]
 pub fn serial_print(args: fmt::Arguments) {
-    #[cfg(target_arch = "x86_64")]
-    {
-        x86_64cint::without_interrupts(|| {
-            SERIAL
-                .lock()
-                .write_fmt(args)
-                .expect("Failed to write to serial port")
-        });
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    unimplemented!();
+    SERIAL
+        .lock()
+        .write_fmt(args)
+        .expect("Failed to write to serial port")
 }

@@ -10,7 +10,7 @@ use x86_64::{
     PrivilegeLevel, VirtAddr,
 };
 
-pub(crate) fn init() {
+pub(super) fn init() {
     GlobalDescriptorTable::init();
 }
 
@@ -30,7 +30,7 @@ lazy_static! {
 
         tss
     };
-    pub(crate) static ref GDT: (GlobalDescriptorTable, Selectors) = {
+    pub static ref GDT: (GlobalDescriptorTable, Selectors) = {
         let mut gdt = GlobalDescriptorTable::new();
 
         let kernel_code = gdt.add_entry(Descriptor::kernel_code_segment());
@@ -52,7 +52,7 @@ lazy_static! {
     };
 }
 
-pub(crate) struct Selectors {
+pub struct Selectors {
     pub(crate) kernel_code: SegmentSelector,
     pub(crate) kernel_data: SegmentSelector,
     tss: SegmentSelector,
