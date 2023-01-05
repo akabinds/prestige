@@ -3,10 +3,7 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 use uart_16550::SerialPort;
 
-#[cfg(target_arch = "x86_64")]
-use x86_64::instructions::interrupts as x86_64cint; // x86_64 crate interrupts
-
-pub fn init() {
+pub(super) fn init() {
     SERIAL.lock().init();
 }
 

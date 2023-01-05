@@ -1,12 +1,11 @@
 mod gdt;
 pub mod interrupts;
 
-use crate::kernel::mem;
+use core::sync::atomic::Ordering;
+
+use crate::kernel::{io, mem};
 use limine::{LimineHhdmRequest, LimineMemmapRequest};
-use x86_64::{
-    instructions::interrupts as x86_64cint, // x86_64 crate interrupts
-    VirtAddr,
-};
+use x86_64::instructions::interrupts as x86_64cint;
 
 static MEMMAP: LimineMemmapRequest = LimineMemmapRequest::new(0);
 static HHDM: LimineHhdmRequest = LimineHhdmRequest::new(0);
@@ -21,10 +20,19 @@ pub fn init() {
             .expect("limine: invalid memmap response")
             .memmap_mut();
 
-        unsafe {
-            mem::PHYSICAL_MEMORY_OFFSET = VirtAddr::new(HHDM.get_response().get().unwrap().offset);
-        }
+        mem::PHYSICAL_MEMORY_OFFSET
+            .store(HHDM.get_response().get().unwrap().offset, Ordering::SeqCst);
 
         mem::init(mem_map);
+        log::info!("initialized paging and heap");
+
+        interrupts::init();
+        log::info!("initialized IDT");
+
+        // gdt::init();
+        // log::info!("initialized GDT");
+
+        io::init();
+        log::info!("initialized I/O devices");
     });
 }

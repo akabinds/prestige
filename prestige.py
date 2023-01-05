@@ -7,6 +7,7 @@ import sys
 from typing import List, Optional, Tuple
 import subprocess
 from pathlib import Path
+import os
 
 try:
     import typer
@@ -17,6 +18,7 @@ except ImportError:
 
     sys.exit(0)
 
+os.environ["KEYBOARD_LAYOUT"] = "qwerty"
 
 cli = typer.Typer()
 
@@ -212,6 +214,11 @@ def build(
         help="Specify the firmware to boot the OS with.",
         rich_help_panel="Customizations",
     ),
+    keyboard: str = typer.Option(
+        "qwerty",
+        help="Specify the desired keyboard layout.",
+        rich_help_panel="Customizations",
+    ),
     debug: bool = typer.Option(
         False,
         "--debug",
@@ -239,6 +246,12 @@ def build(
     #         "aarch64 must be booted with the UEFI firmware (help: run again with `--firmware uefi`)"
     #     )
     #     return
+
+    if keyboard not in ("qwerty", "dvorak", "azerty"):
+        logging.error(f"The {keyboard} keyboard layout is not supported.")
+        return
+
+    os.environ["KEYBOARD_LAYOUT"] = keyboard
 
     cargo_cmd = "build"
     cargo_args = determine_cargo_args(target, features, debug)

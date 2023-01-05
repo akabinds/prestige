@@ -36,15 +36,16 @@ Prestige uses a custom build system that takes care of all the tedious tasks, li
 
 `build` - build the OS.
 
-- *Default Behavior*:
+- *Default Behavior:*
 
     By default, the `build` subcommand will build the OS in release mode and run it in the QEMU emulator.
 
-- *Customizations*:
+- *Customizations:*
 
     - `--target`: This option allows you to specify the target architecture to build the OS with. This defaults to `x86_64-prestige`. Ensure to maintain the format of `arch-prestige`.
     - `--features`: This option allows you to specify a **single comma-separated** list of crate features (view the `[features]` section in `Cargo.toml`).
     - `--firmware`: This options allows you to specify the firmware to boot the OS with. This defaults to `bios`.
+    - `--keyboard`: This options allows you to specify the desired keyboard layout. This defaults to `qwerty`.
     - `--debug`: This flag allows you to build the OS in **debug** mode instead of the default **release** mode.
     - `--no-qemu`: This flag allows you to prevent running the disk image in QEMU.
 

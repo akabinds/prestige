@@ -1,15 +1,32 @@
 use super::PHYSICAL_MEMORY_OFFSET;
+use core::sync::atomic::Ordering;
 use x86_64::{
-    registers::control::{Cr3, Cr4, Cr4Flags},
+    registers::control::Cr3,
     structures::paging::{OffsetPageTable, PageTable},
     VirtAddr,
 };
 
+/// Initialize the offset page table.
+///
+/// # Safety
+///
+/// This function is unsafe because the caller must guarantee that the complete physical memory is mapped
+/// to the virtual memory as `physical_memory_offset`. In addition, this function must only be called once to avoid
+/// undefined behavior due to aliasing mutable references.
 pub(super) unsafe fn init() -> OffsetPageTable<'static> {
-    let level_4_table = active_level_4_table(PHYSICAL_MEMORY_OFFSET);
-    OffsetPageTable::new(level_4_table, PHYSICAL_MEMORY_OFFSET)
+    let physical_memory_offset = VirtAddr::new(PHYSICAL_MEMORY_OFFSET.load(Ordering::SeqCst));
+
+    let active_level_4_table = active_level_4_table(physical_memory_offset);
+    OffsetPageTable::new(active_level_4_table, physical_memory_offset)
 }
 
+/// Return a mutable reference to the active level 4 table.
+///
+/// # Safety
+///
+/// This function is unsafe because the caller must guarantee that the complete physical memory is mapped
+/// to the virtual memory as `physical_memory_offset`. In addition, this function must only be called once to avoid
+/// undefined behavior due to aliasing mutable references.
 #[cfg(target_arch = "x86_64")]
 pub(super) unsafe fn active_level_4_table(
     physical_memory_offset: VirtAddr,
@@ -26,14 +43,4 @@ pub(super) unsafe fn active_level_4_table(
 #[cfg(target_arch = "aarch64")]
 pub(super) unsafe fn active_level_4_table() -> &'static mut PageTable {
     unimplemented!()
-}
-
-#[cfg(target_arch = "x86_64")]
-pub(super) fn level_5_paging_enabled() -> bool {
-    Cr4::read().contains(Cr4Flags::L5_PAGING)
-}
-
-#[cfg(target_arch = "aarch64")]
-pub(super) const fn level_5_paging_enabled() -> bool {
-    false
 }

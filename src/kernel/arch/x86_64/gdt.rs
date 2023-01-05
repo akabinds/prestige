@@ -1,4 +1,3 @@
-use crate::kernel::Initialize;
 use lazy_static::lazy_static;
 use x86_64::{
     instructions::tables::load_tss,
@@ -11,7 +10,18 @@ use x86_64::{
 };
 
 pub(super) fn init() {
-    GlobalDescriptorTable::init();
+    GDT.0.load();
+
+    unsafe {
+        // Cr4::update(|f| *f |= Cr4Flags::FSGSBASE);
+        CS::set_reg(GDT.1.kernel_code);
+        DS::set_reg(GDT.1.kernel_data);
+        ES::set_reg(GDT.1.kernel_data);
+        SS::set_reg(GDT.1.kernel_data);
+        FS::set_reg(GDT.1.kernel_data);
+        GS::set_reg(SegmentSelector::new(0, PrivilegeLevel::Ring0));
+        load_tss(GDT.1.tss);
+    }
 }
 
 const STACK_SIZE: usize = 4096 * 5;
@@ -30,7 +40,7 @@ lazy_static! {
 
         tss
     };
-    pub static ref GDT: (GlobalDescriptorTable, Selectors) = {
+    pub(super) static ref GDT: (GlobalDescriptorTable, Selectors) = {
         let mut gdt = GlobalDescriptorTable::new();
 
         let kernel_code = gdt.add_entry(Descriptor::kernel_code_segment());
@@ -52,27 +62,10 @@ lazy_static! {
     };
 }
 
-pub struct Selectors {
-    pub(crate) kernel_code: SegmentSelector,
-    pub(crate) kernel_data: SegmentSelector,
+pub(super) struct Selectors {
+    pub(super) kernel_code: SegmentSelector,
+    pub(super) kernel_data: SegmentSelector,
     tss: SegmentSelector,
-    pub(crate) user_data: SegmentSelector,
-    pub(crate) user_code: SegmentSelector,
-}
-
-impl Initialize for GlobalDescriptorTable {
-    fn init() {
-        GDT.0.load();
-
-        unsafe {
-            // Cr4::update(|f| *f |= Cr4Flags::FSGSBASE);
-            CS::set_reg(GDT.1.kernel_code);
-            DS::set_reg(GDT.1.kernel_data);
-            ES::set_reg(GDT.1.kernel_data);
-            SS::set_reg(GDT.1.kernel_data);
-            FS::set_reg(GDT.1.kernel_data);
-            GS::set_reg(SegmentSelector::new(0, PrivilegeLevel::Ring0));
-            load_tss(GDT.1.tss);
-        }
-    }
+    pub(super) user_data: SegmentSelector,
+    pub(super) user_code: SegmentSelector,
 }
