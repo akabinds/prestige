@@ -1,4 +1,5 @@
-use core::{marker::PhantomData, ops::Range};
+use core::marker::PhantomData;
+use alloc::boxed::Box;
 use limine::{LimineMemmapEntry, LimineMemoryMapEntryType, NonNullPtr};
 use spin::{Mutex, Once};
 use x86_64::{
@@ -31,9 +32,10 @@ pub(super) enum MemoryRegionType {
 
 #[derive(Debug)]
 pub(super) struct MemoryRegion<S: PageSize = Size4KiB> {
-    frame_range: Range<u64>,
+    start_addr: u64,
+    end_addr: u64,
     region_type: MemoryRegionType,
-    _phantom: PhantomData<S>,
+    _page_size: PhantomData<S>,
 }
 
 // Implementing `Into` because we will never convert back to `LimineMemmapEntry`
@@ -44,26 +46,28 @@ impl<S: PageSize> Into<MemoryRegion<S>> for &LimineMemmapEntry {
         let end_addr = ((self.base + self.len - 1) / page_size) + 1;
 
         MemoryRegion {
-            frame_range: start_addr..end_addr,
+            start_addr,
+            end_addr,
             region_type: MemoryRegionType::default(),
-            _phantom: PhantomData,
+            _page_size: PhantomData,
         }
     }
 }
 
-// #[derive(Debug)]
-// pub(super) struct MemoryRegions<S: PageSize + 'static = Size4KiB>(&'static mut [MemoryRegion<S>]);
+#[derive(Debug)]
+pub(super) struct UsableMemoryRegions<S: PageSize = Size4KiB>(Box<[MemoryRegion<S>]>);
 
-// impl<S: PageSize> FromIterator<MemoryRegion<S>> for MemoryRegions<S> {
-//     fn from_iter<T: IntoIterator<Item = MemoryRegion<S>>>(iter: T) -> Self {
-//         todo!();
-//     }
-// }
+impl FromIterator<MemoryRegion> for UsableMemoryRegions {
+    fn from_iter<T: IntoIterator<Item = MemoryRegion>>(iter: T) -> Self {
+        let regions: Box<[MemoryRegion]> = iter.into_iter().collect();
+        UsableMemoryRegions(regions)
+    }
+}
 
-/// A frame allocator that uses the memory map provided by the bootloader
+/// A frame allocator that uses the usable frames from the memory map provided by the bootloader.
 pub(super) struct BootInfoFrameAllocator {
-    // TODO: concrete type instead of trait object
-    mem_map: &'static dyn Iterator<Item = MemoryRegion>,
+    usable_frames: UsableMemoryRegions,
+    next: u64,
 }
 
 impl BootInfoFrameAllocator {
@@ -74,12 +78,13 @@ impl BootInfoFrameAllocator {
     /// This function is unsafe because the caller must guarantee that the memory map passed is valid.
     /// In reality, only the usable frames are used.
     unsafe fn init(mem_map: &'static mut [NonNullPtr<LimineMemmapEntry>]) -> Self {
-        let mem_map = mem_map
+        let usable_frames = mem_map
             .iter()
             .filter_map(|e| e.usable())
-            .map(Into::<MemoryRegion<_>>::into);
+            .map(Into::<MemoryRegion>::into)
+            .collect();
 
-        Self { mem_map: &mem_map } // ERROR: WILL FIX
+        Self { usable_frames, next: 0 }
     }
 }
 
